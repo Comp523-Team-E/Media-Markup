@@ -33,3 +33,6 @@ vite.config.ts.timestamp-*
 
 # Tauri gen files
 src-tauri/gen
+
+# Sample audio files 
+samples
