@@ -67,26 +67,58 @@
     return 'Start+End';
   }
 
-  // ── Position polling ─────────────────────────────────────────────────────
+  // ── Position polling + interpolation ────────────────────────────────────
+  //
+  // Strategy: poll the backend every 100 ms for a ground-truth position, then
+  // use requestAnimationFrame (~60 fps) to advance positionMs with the wall
+  // clock between syncs. This eliminates both the 100 ms poll stutter and the
+  // per-FLAC-packet jump (~93 ms at 44100 Hz / 4096 samples).
+
+  /** Last position received from the backend (ms). */
+  let syncPositionMs = 0;
+  /** performance.now() value at the moment syncPositionMs was recorded. */
+  let syncWallTime   = 0;
 
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+  let rafHandle: number | null = null;
 
   function startPolling() {
     if (pollInterval) return;
     pollInterval = setInterval(async () => {
       try {
         const p = await invoke<PlaybackPosition>('get_playback_position');
-        if (!isSeeking) positionMs = p.positionMs;
-        durationMs = p.durationMs;
-        isPlaying  = p.isPlaying;
+        // Anchor the interpolation to the fresh backend value.
+        syncPositionMs = p.positionMs;
+        syncWallTime   = performance.now();
+        durationMs     = p.durationMs;
+        isPlaying      = p.isPlaying;
+        // When paused (and not seeking), snap immediately to the backend value.
+        // Never overwrite positionMs while the user is dragging — that's what
+        // causes the slider to jump back to the playback head mid-drag.
+        if (!p.isPlaying && !isSeeking) {
+          positionMs = p.positionMs;
+        }
       } catch {
         // No file loaded — ignore
       }
     }, 100);
   }
 
+  function startRaf() {
+    if (rafHandle !== null) return;
+    function tick() {
+      if (isPlaying && !isSeeking) {
+        const elapsed = performance.now() - syncWallTime;
+        positionMs = Math.min(syncPositionMs + elapsed * speed, durationMs);
+      }
+      rafHandle = requestAnimationFrame(tick);
+    }
+    rafHandle = requestAnimationFrame(tick);
+  }
+
   onDestroy(() => {
     if (pollInterval) clearInterval(pollInterval);
+    if (rafHandle !== null) cancelAnimationFrame(rafHandle);
   });
 
   // ── IPC handlers ─────────────────────────────────────────────────────────
@@ -101,6 +133,7 @@
       segments     = null;
       renameInputs = {};
       startPolling();
+      startRaf();
     } catch (e) {
       error = String(e);
     }
@@ -115,8 +148,16 @@
     }
   }
 
+  // Track whether audio was playing when the drag began so we can resume it.
+  let wasPlayingBeforeSeek = false;
+
   function handleSeekStart() {
     isSeeking = true;
+    wasPlayingBeforeSeek = isPlaying;
+    if (isPlaying) {
+      isPlaying = false;                      // optimistic UI update
+      invoke('pause').catch(() => {});        // tell the backend; don't await
+    }
   }
 
   async function handleSeekEnd(e: Event) {
@@ -125,6 +166,14 @@
     try {
       error = null;
       await invoke('seek', { positionMs: Math.round(ms) });
+      // Re-anchor interpolation so the RAF loop starts from the new position.
+      syncPositionMs = ms;
+      syncWallTime   = performance.now();
+      // Resume playback if it was playing before the drag.
+      if (wasPlayingBeforeSeek) {
+        await invoke('play');
+        isPlaying = true;
+      }
     } catch (err) {
       error = String(err);
     } finally {
@@ -270,6 +319,7 @@
       value={positionMs}
       onmousedown={handleSeekStart}
       ontouchstart={handleSeekStart}
+      oninput={(e) => { positionMs = Number((e.currentTarget as HTMLInputElement).value); }}
       onchange={handleSeekEnd}
       style="width: 100%"
     />
