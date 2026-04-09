@@ -14,6 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::open_file,
@@ -32,7 +33,7 @@ pub fn run() {
             commands::rename_segment,
             commands::list_markers,
             commands::validate_markers,
-            commands::export_csv,
+            commands::export_audio_segments,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

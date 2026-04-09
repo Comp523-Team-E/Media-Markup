@@ -2,7 +2,6 @@ use std::sync::{
     mpsc::{self, SyncSender},
     Arc,
 };
-use std::path::Path;
 use rtrb::RingBuffer;
 
 use crate::error::{AppError, Result};
@@ -23,13 +22,6 @@ pub struct FileMetadata {
     pub duration_ms: u64,
     pub sample_rate: u32,
     pub channels: u16,
-}
-
-impl FileMetadata {
-    pub fn file_name_prefix(&self) -> Option<String> {
-        let path = Path::new(&self.file_name);
-        Some(path.file_stem()?.to_str()?.to_string())
-    }
 }
 
 /// The live audio engine for a single loaded file.

@@ -20,6 +20,10 @@ pub enum AppError {
     Csv(#[from] csv::Error),
     #[error("Dialog cancelled")]
     DialogCancelled,
+    #[error("ffmpeg sidecar not available: {0}")]
+    FfmpegNotFound(String),
+    #[error("ffmpeg failed on segment '{0}': {1}")]
+    FfmpegFailed(String, String),
 }
 
 // Tauri requires command errors to be serializable so they can be sent over IPC.

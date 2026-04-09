@@ -10,6 +10,7 @@ To get started, cd into the project's directory and run the following commands
 
 ```bash
     npm install
+    npm run download-ffmpeg
     npm run tauri dev
 ```
 
