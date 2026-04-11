@@ -14,6 +14,41 @@ To get started, cd into the project's directory and run the following commands
     npm run tauri dev
 ```
 
+## Testing 
+
+The app has two primary components, the Svelte & Typescript frontend and the Rust backend. There are tests for both of these.
+
+### Typescript tests
+
+to run the typescript tests (which are written using vitest), you can simply run 
+
+```bash
+    npm test
+```
+
+to get a code coverage report, run 
+
+```bash
+    npm run coverage
+```
+
+This will also generate a coverage directory with the coverage report 
+
+### Rust tests 
+
+The rust tests are written using cargo's built in testing suite. To run, use the following steps 
+
+```bash
+    cd src-tauri
+    cargo test 
+```
+
+To generate a coverage report, run the following command (also from within the src-tauri directory)
+
+```bash
+    cargo coverage
+```
+
 ## Recommended IDE Setup
 
 [VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
