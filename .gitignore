@@ -34,5 +34,8 @@ vite.config.ts.timestamp-*
 # Tauri gen files
 src-tauri/gen
 
-# Sample audio files 
+# Sample audio files
 samples
+
+# ffmpeg sidecar binaries (populated by scripts/download-ffmpeg.sh)
+src-tauri/binaries/

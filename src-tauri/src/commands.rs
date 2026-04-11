@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::audio::{AudioEngine, FileMetadata};
 use crate::error::{AppError, Result};
-use crate::export::write_csv;
+use crate::export::export_segments;
 use crate::markers::{Marker, MarkerKind, Segment};
 use crate::state::AppState;
 
@@ -197,38 +197,40 @@ pub async fn validate_markers(state: State<'_, AppState>) -> Result<Vec<Segment>
 }
 
 // ---------------------------------------------------------------------------
-// CSV export
+// Audio segment export
 // ---------------------------------------------------------------------------
 
+/// Validate the current markers into segments, open a folder-picker dialog, then
+/// extract each segment from the loaded audio file using the bundled ffmpeg sidecar.
+/// Returns the number of segment files written.
 #[tauri::command]
-pub async fn export_csv(app: AppHandle, state: State<'_, AppState>) -> Result<()> {
+pub async fn export_audio_segments(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<u32> {
     use tauri_plugin_dialog::DialogExt;
 
-    // Validate markers first — errors surface before the dialog opens.
     let segments = state.markers.lock().to_segments()?;
-
-    let mut file_name = String::from("segments.txt");
-    if let Some(engine) = state.engine.lock().as_ref() {
-        if let Some(name) = engine.metadata.file_name_prefix() {
-            file_name = format!("{name}.txt")
-        };
-        println!("{}", file_name)
+    if segments.is_empty() {
+        return Err(AppError::ValidationError("No segments to export".into()));
     }
 
-    let save_path = app
+    let source_path = {
+        let engine = state.engine.lock();
+        engine.as_ref().ok_or(AppError::NoFileLoaded)?.metadata.file_path.clone()
+    };
+
+    let output_dir = app
         .dialog()
         .file()
-        .set_file_name(file_name.as_str())
-        .add_filter("CSV", &["csv"])
-        .add_filter("TXT", &["txt"])
-        .blocking_save_file()
+        .blocking_pick_folder()
         .ok_or(AppError::DialogCancelled)?;
 
-    let path = save_path.to_string();
+    let output_path = output_dir
+        .as_path()
+        .ok_or_else(|| AppError::ValidationError("Invalid output directory path".into()))?;
 
-    let file = std::fs::File::create(path)?;
-    write_csv(file, &segments)?;
-    Ok(())
+    export_segments(&app, &source_path, &segments, output_path).await
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
 pub mod csv;
+pub mod segments;
 
-pub use csv::write_csv;
+pub use segments::export_segments;

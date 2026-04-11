@@ -313,13 +313,24 @@
       appState.error = String(e);
     }
   }
+
+  async function exportAudioSegments() {
+    try {
+      appState.error = null;
+      await invoke('export_audio_segments');
+    } catch (e) {
+      appState.error = String(e);
+    }
+  }
 </script>
 
 {#if !appState.metadata}
   <WelcomeScreen onOpenFile={openFile} />
 {:else}
   <div class="app">
-    <Header onOpenFile={openFile} onExportCsv={exportCsv} />
+    <Header onOpenFile={openFile}
+            onExportAudioSegments={exportAudioSegments}
+    />
     <WaveformDisplay />
     <PlaybackControls
       onStepBack={stepBack}

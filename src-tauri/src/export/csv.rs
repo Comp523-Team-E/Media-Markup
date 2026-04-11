@@ -8,12 +8,10 @@ pub fn ms_to_timestamp(ms: u64) -> String {
     let secs = total_secs % 60;
     let minutes = (total_secs / 60) % 60;
     let hours = total_secs / 3600;
-    format!("{:01}:{:02}:{:02}.{:03}", hours, minutes, secs, millis)
+    format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, secs, millis)
 }
 
-/// Write `segments` as RFC 4180 CSV to an arbitrary writer.
-///
-/// Header: `start_time,end_time,title`
+/// Write `segments` to an arbitrary writer.
 pub fn write_csv<W: std::io::Write>(writer: W, segments: &[Segment]) -> Result<()> {
     let mut wtr = csv::Writer::from_writer(writer);
     let mut counter = 1;
@@ -71,24 +69,20 @@ mod tests {
     // --- CSV write tests ---
 
     #[test]
-    fn empty_segments_produces_header_only() {
+    fn empty_segments_produces_no_output() {
         let mut buf: Vec<u8> = Vec::new();
         write_csv(&mut buf, &[]).unwrap();
-        let s = String::from_utf8(buf).unwrap();
-        let lines: Vec<&str> = s.lines().collect();
-        assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0], "start_time,end_time,title");
+        assert!(String::from_utf8(buf).unwrap().is_empty());
     }
 
     #[test]
-    fn single_segment_produces_header_and_one_row() {
+    fn single_segment_produces_one_row() {
         let mut buf: Vec<u8> = Vec::new();
         write_csv(&mut buf, &[seg(0, 5000, "001 Segment")]).unwrap();
         let s = String::from_utf8(buf).unwrap();
         let lines: Vec<&str> = s.lines().collect();
-        assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0], "start_time,end_time,title");
-        assert_eq!(lines[1], "00:00:00.000,00:00:05.000,001 Segment");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0], "1,00:00:00.000,00:00:05.000,001 Segment");
     }
 
     #[test]
@@ -101,8 +95,8 @@ mod tests {
         write_csv(&mut buf, &segs).unwrap();
         let s = String::from_utf8(buf).unwrap();
         let lines: Vec<&str> = s.lines().collect();
-        assert_eq!(lines.len(), 3);
-        assert_eq!(lines[2], "00:00:06.000,00:00:10.000,002 Segment");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[1], "2,00:00:06.000,00:00:10.000,002 Segment");
     }
 
     #[test]
