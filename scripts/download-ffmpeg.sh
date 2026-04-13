@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Download static ffmpeg binaries into src-tauri/binaries/ for use as a Tauri sidecar.
+# Ensure ffmpeg binaries exist in src-tauri/binaries/ for use as Tauri sidecars.
 #
 # Usage:
-#   ./scripts/download-ffmpeg.sh          # download for the current host platform
-#   ./scripts/download-ffmpeg.sh --all    # download for all supported platforms (CI)
+#   ./scripts/download-ffmpeg.sh          # ensure the current host platform binary exists
+#   ./scripts/download-ffmpeg.sh --all    # download/refresh all supported platform binaries (CI)
 #
 # Supported target triples:
 #   aarch64-apple-darwin       (macOS Apple Silicon)
@@ -23,6 +23,21 @@ mkdir -p "$BINARIES_DIR"
 
 log() { echo "[download-ffmpeg] $*"; }
 
+sidecar_ready() {
+    local path="$1"
+
+    if [[ -f "$path" ]]; then
+        if [[ ! -x "$path" ]]; then
+            chmod +x "$path"
+        fi
+
+        log "Using existing ffmpeg sidecar: $path"
+        return 0
+    fi
+
+    return 1
+}
+
 require_cmd() {
     if ! command -v "$1" &>/dev/null; then
         echo "Error: '$1' is required but not found on PATH." >&2
@@ -35,7 +50,11 @@ download_macos() {
     local triple="$1"   # aarch64-apple-darwin or x86_64-apple-darwin
     local dest="$BINARIES_DIR/ffmpeg-${triple}"
 
-    log "Downloading ffmpeg for $triple via Homebrew..."
+    if sidecar_ready "$dest"; then
+        return 0
+    fi
+
+    log "Installing ffmpeg sidecar for $triple via Homebrew..."
 
     if ! command -v brew &>/dev/null; then
         echo "Error: Homebrew not found. Install it from https://brew.sh then re-run." >&2
@@ -65,6 +84,10 @@ download_macos() {
 download_linux_x64() {
     local triple="x86_64-unknown-linux-gnu"
     local dest="$BINARIES_DIR/ffmpeg-${triple}"
+
+    if sidecar_ready "$dest"; then
+        return 0
+    fi
 
     require_cmd curl
     require_cmd tar
@@ -101,6 +124,10 @@ download_linux_x64() {
 download_windows_x64() {
     local triple="x86_64-pc-windows-msvc"
     local dest="$BINARIES_DIR/ffmpeg-${triple}.exe"
+
+    if sidecar_ready "$dest"; then
+        return 0
+    fi
 
     require_cmd curl
     require_cmd unzip

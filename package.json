@@ -9,8 +9,10 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri",
+    "ensure-ffmpeg": "bash scripts/download-ffmpeg.sh",
     "download-ffmpeg": "bash scripts/download-ffmpeg.sh",
+    "pretauri": "npm run ensure-ffmpeg",
+    "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage"

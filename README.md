@@ -10,9 +10,10 @@ To get started, cd into the project's directory and run the following commands
 
 ```bash
     npm install
-    npm run download-ffmpeg
     npm run tauri dev
 ```
+
+`npm run tauri dev` automatically ensures the required ffmpeg sidecar exists before Tauri starts. You can still run `npm run download-ffmpeg` manually if you need to refresh it.
 
 ## Testing 
 
