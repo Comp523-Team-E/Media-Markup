@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::markers::Segment;
 
 /// Format a millisecond timestamp as `HH:MM:SS.mmm`.
@@ -28,6 +28,63 @@ pub fn write_csv<W: std::io::Write>(writer: W, segments: &[Segment]) -> Result<(
     }
     wtr.flush()?;
     Ok(())
+}
+
+/// Parse a timestamp string `HH:MM:SS.mmm` into milliseconds.
+/// Returns `None` if the format is invalid.
+pub fn parse_timestamp(s: &str) -> Option<u64> {
+    let parts: Vec<&str> = s.splitn(3, ':').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let hours: u64 = parts[0].parse().ok()?;
+    let minutes: u64 = parts[1].parse().ok()?;
+    let sec_parts: Vec<&str> = parts[2].splitn(2, '.').collect();
+    if sec_parts.len() != 2 {
+        return None;
+    }
+    let seconds: u64 = sec_parts[0].parse().ok()?;
+    let millis: u64 = sec_parts[1].parse().ok()?;
+    Some((hours * 3_600 + minutes * 60 + seconds) * 1_000 + millis)
+}
+
+/// Read CSV rows (no header) from `reader` and return a list of `Segment`s.
+/// Expected columns: Index, Start Timestamp, End Timestamp, Segment Title.
+pub fn import_markers_from_reader<R: std::io::Read>(reader: R) -> Result<Vec<Segment>> {
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(reader);
+
+    let mut segments = Vec::new();
+
+    for (row_idx, result) in rdr.records().enumerate() {
+        let record = result?;
+        if record.len() < 4 {
+            return Err(AppError::ValidationError(format!(
+                "Row {}: expected 4 fields, got {}",
+                row_idx + 1,
+                record.len()
+            )));
+        }
+        let start_ms = parse_timestamp(record[1].trim()).ok_or_else(|| {
+            AppError::ValidationError(format!(
+                "Row {}: invalid start timestamp {:?}",
+                row_idx + 1,
+                &record[1]
+            ))
+        })?;
+        let end_ms = parse_timestamp(record[2].trim()).ok_or_else(|| {
+            AppError::ValidationError(format!(
+                "Row {}: invalid end timestamp {:?}",
+                row_idx + 1,
+                &record[2]
+            ))
+        })?;
+        let title = record[3].trim().to_string();
+        segments.push(Segment { start_ms, end_ms, title });
+    }
+
+    Ok(segments)
 }
 
 #[cfg(test)]
@@ -120,5 +177,117 @@ mod tests {
         }
         let result = write_csv(FailWriter, &[seg(0, 1000, "test")]);
         assert!(result.is_err());
+    }
+
+    // --- parse_timestamp tests ---
+
+    #[test]
+    fn parse_timestamp_zero() {
+        assert_eq!(parse_timestamp("00:00:00.000"), Some(0));
+    }
+
+    #[test]
+    fn parse_timestamp_one_second() {
+        assert_eq!(parse_timestamp("00:00:01.000"), Some(1_000));
+    }
+
+    #[test]
+    fn parse_timestamp_one_minute() {
+        assert_eq!(parse_timestamp("00:01:00.000"), Some(60_000));
+    }
+
+    #[test]
+    fn parse_timestamp_one_hour() {
+        assert_eq!(parse_timestamp("01:00:00.000"), Some(3_600_000));
+    }
+
+    #[test]
+    fn parse_timestamp_combined() {
+        assert_eq!(parse_timestamp("01:01:01.500"), Some(3_661_500));
+    }
+
+    #[test]
+    fn parse_timestamp_invalid_missing_dot() {
+        assert_eq!(parse_timestamp("00:00:01"), None);
+    }
+
+    #[test]
+    fn parse_timestamp_invalid_non_numeric() {
+        assert_eq!(parse_timestamp("xx:00:00.000"), None);
+    }
+
+    #[test]
+    fn parse_timestamp_invalid_wrong_parts() {
+        assert_eq!(parse_timestamp("00:00"), None);
+    }
+
+    #[test]
+    fn parse_timestamp_roundtrips() {
+        assert_eq!(parse_timestamp(&ms_to_timestamp(3_661_500)), Some(3_661_500));
+    }
+
+    // --- import_markers_from_reader tests ---
+
+    #[test]
+    fn import_single_row_produces_one_segment() {
+        let csv = "1,00:00:00.000,00:00:05.000,My Segment\n";
+        let result = import_markers_from_reader(csv.as_bytes()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].start_ms, 0);
+        assert_eq!(result[0].end_ms, 5_000);
+        assert_eq!(result[0].title, "My Segment");
+    }
+
+    #[test]
+    fn import_multiple_rows_preserves_order() {
+        let csv = "1,00:00:00.000,00:00:05.000,First\n2,00:00:06.000,00:00:10.000,Second\n";
+        let result = import_markers_from_reader(csv.as_bytes()).unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].title, "First");
+        assert_eq!(result[1].title, "Second");
+    }
+
+    #[test]
+    fn import_row_with_comma_in_title() {
+        let csv = "1,00:00:00.000,00:00:05.000,\"Hello, World\"\n";
+        let result = import_markers_from_reader(csv.as_bytes()).unwrap();
+        assert_eq!(result[0].title, "Hello, World");
+    }
+
+    #[test]
+    fn import_empty_reader_returns_empty_vec() {
+        let result = import_markers_from_reader("".as_bytes()).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn import_invalid_start_timestamp_returns_error() {
+        let csv = "1,xx:xx:xx.xxx,00:00:05.000,Test\n";
+        let result = import_markers_from_reader(csv.as_bytes());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn import_invalid_end_timestamp_returns_error() {
+        let csv = "1,00:00:00.000,xx:xx:xx.xxx,Test\n";
+        let result = import_markers_from_reader(csv.as_bytes());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn import_roundtrips_write_then_read() {
+        let original = vec![
+            seg(0, 5_000, "001 Segment"),
+            seg(6_000, 10_000, "002 Segment"),
+        ];
+        let mut buf: Vec<u8> = Vec::new();
+        write_csv(&mut buf, &original).unwrap();
+        let imported = import_markers_from_reader(buf.as_slice()).unwrap();
+        assert_eq!(imported.len(), original.len());
+        for (imp, orig) in imported.iter().zip(original.iter()) {
+            assert_eq!(imp.start_ms, orig.start_ms);
+            assert_eq!(imp.end_ms, orig.end_ms);
+            assert_eq!(imp.title, orig.title);
+        }
     }
 }

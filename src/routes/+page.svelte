@@ -3,7 +3,7 @@
   import { appState } from '$lib/state.svelte';
   import {
     stopPolling, stopRaf, handleKeydown,
-    openFile, togglePlay, setSpeed, handleLoop,
+    openFile, importCsv, togglePlay, setSpeed, handleLoop,
     addMarkerNoKind, addMarkerAt, deleteMarker,
     renameSegment, exportAudioSegments,
     stepBack, stepFwd,
@@ -34,6 +34,7 @@
 {:else}
   <div class="app">
     <Header onOpenFile={openFile}
+            onImportCsv={importCsv}
             onExportAudioSegments={exportAudioSegments}
     />
     <WaveformDisplay />

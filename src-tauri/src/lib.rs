@@ -33,6 +33,7 @@ pub fn run() {
             commands::rename_segment,
             commands::list_markers,
             commands::validate_markers,
+            commands::import_csv,
             commands::export_audio_segments,
         ])
         .run(tauri::generate_context!())
