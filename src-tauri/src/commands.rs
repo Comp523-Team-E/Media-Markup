@@ -220,6 +220,35 @@ pub async fn import_csv(
     let file = std::fs::File::open(path.to_string())?;
     let segments = import_markers_from_reader(file)?;
 
+    // Validate that all marker positions fit within the loaded audio file.
+    {
+        let engine_guard = state.engine.lock();
+        let duration_ms = engine_guard
+            .as_ref()
+            .ok_or(AppError::NoFileLoaded)?
+            .metadata
+            .duration_ms;
+
+        for seg in &segments {
+            if seg.start_ms > duration_ms {
+                return Err(AppError::ValidationError(format!(
+                    "Segment '{}' start ({}) exceeds audio duration ({})",
+                    seg.title,
+                    crate::export::csv::ms_to_timestamp(seg.start_ms),
+                    crate::export::csv::ms_to_timestamp(duration_ms),
+                )));
+            }
+            if seg.end_ms > duration_ms {
+                return Err(AppError::ValidationError(format!(
+                    "Segment '{}' end ({}) exceeds audio duration ({})",
+                    seg.title,
+                    crate::export::csv::ms_to_timestamp(seg.end_ms),
+                    crate::export::csv::ms_to_timestamp(duration_ms),
+                )));
+            }
+        }
+    }
+
     let mut store = state.markers.lock();
     store.clear();
 
