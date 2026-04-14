@@ -1,8 +1,9 @@
 <script lang="ts">
   import { appState } from '$lib/state.svelte';
 
-  let { onOpenFile, onExportAudioSegments }: {
+  let { onOpenFile, onImportCsv, onExportAudioSegments }: {
     onOpenFile: () => void;
+    onImportCsv: () => void;
     onExportAudioSegments: (exportCsv: boolean, exportAudio: boolean) => void;
   } = $props();
 
@@ -25,14 +26,19 @@
     <p class="app-sub">Precision audio/video segmentation tool</p>
   </div>
   <div class="header-right">
-    {#if appState.error}
-      <span class="error-badge">{appState.error}</span>
-    {/if}
     <button class="btn-export" onclick={onOpenFile}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
       </svg>
       Open File
+    </button>
+    <button class="btn-export" onclick={onImportCsv}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Import CSV
     </button>
     <div class="export-wrapper">
       <button class="btn-export" onclick={toggleDropdown}>
@@ -99,15 +105,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-
-  .error-badge {
-    font-size: 11px;
-    color: #f87171;
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .btn-export {

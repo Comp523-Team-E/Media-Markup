@@ -85,6 +85,12 @@ impl MarkerStore {
         Ok(())
     }
 
+    /// Remove all markers and titles.
+    pub fn clear(&mut self) {
+        self.markers.clear();
+        self.titles.clear();
+    }
+
     /// Return all markers in sorted order.
     pub fn list(&self) -> &[Marker] {
         &self.markers
@@ -203,5 +209,16 @@ mod tests {
         let mut store = MarkerStore::new();
         let result = store.move_marker(Uuid::new_v4(), 1000);
         assert!(matches!(result, Err(crate::error::AppError::MarkerNotFound(_))));
+    }
+
+    #[test]
+    fn clear_removes_all_markers_and_titles() {
+        let mut store = MarkerStore::new();
+        let s = store.add(0, MarkerKind::Start);
+        store.add(5000, MarkerKind::End);
+        store.rename_segment(s.id, "My Segment".into()).unwrap();
+        store.clear();
+        assert!(store.list().is_empty());
+        assert!(store.titles.is_empty());
     }
 }

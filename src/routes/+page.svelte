@@ -3,7 +3,7 @@
   import { appState } from '$lib/state.svelte';
   import {
     stopPolling, stopRaf, handleKeydown,
-    openFile, togglePlay, setSpeed, handleLoop,
+    openFile, importCsv, togglePlay, setSpeed, handleLoop,
     addMarkerNoKind, addMarkerAt, deleteMarker,
     renameSegment, exportAudioSegments,
     stepBack, stepFwd,
@@ -16,6 +16,7 @@
   import MarkerPanel from '../components/MarkerPanel.svelte';
   import SegmentPanel from '../components/SegmentPanel.svelte';
   import ShortcutsPanel from '../components/ShortcutsPanel.svelte';
+  import ErrorAlert from '../components/ErrorAlert.svelte';
 
   onMount(() => {
     document.addEventListener('keydown', handleKeydown);
@@ -29,11 +30,14 @@
   });
 </script>
 
+<ErrorAlert />
+
 {#if !appState.metadata}
   <WelcomeScreen onOpenFile={openFile} />
 {:else}
   <div class="app">
     <Header onOpenFile={openFile}
+            onImportCsv={importCsv}
             onExportAudioSegments={exportAudioSegments}
     />
     <WaveformDisplay />

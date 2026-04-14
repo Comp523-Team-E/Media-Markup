@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::audio::{AudioEngine, FileMetadata};
 use crate::error::{AppError, Result};
+use crate::export::csv::import_markers_from_reader;
 use crate::export::export_segments;
 use crate::markers::{Marker, MarkerKind, Segment};
 use crate::state::AppState;
@@ -194,6 +195,75 @@ pub async fn list_markers(state: State<'_, AppState>) -> Result<Vec<Marker>> {
 #[tauri::command]
 pub async fn validate_markers(state: State<'_, AppState>) -> Result<Vec<Segment>> {
     state.markers.lock().to_segments()
+}
+
+// ---------------------------------------------------------------------------
+// CSV import
+// ---------------------------------------------------------------------------
+
+/// Open a CSV file dialog, parse the selected file, replace all current markers
+/// with the imported segments, and return the new marker list.
+#[tauri::command]
+pub async fn import_csv(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Vec<Marker>> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let path = app
+        .dialog()
+        .file()
+        .add_filter("CSV", &["csv"])
+        .blocking_pick_file()
+        .ok_or(AppError::DialogCancelled)?;
+
+    let file = std::fs::File::open(path.to_string())?;
+    let segments = import_markers_from_reader(file)?;
+
+    // Validate that all marker positions fit within the loaded audio file.
+    {
+        let engine_guard = state.engine.lock();
+        let duration_ms = engine_guard
+            .as_ref()
+            .ok_or(AppError::NoFileLoaded)?
+            .metadata
+            .duration_ms;
+
+        for seg in &segments {
+            if seg.start_ms > duration_ms {
+                return Err(AppError::ValidationError(format!(
+                    "Segment '{}' start ({}) exceeds audio duration ({})",
+                    seg.title,
+                    crate::export::csv::ms_to_timestamp(seg.start_ms),
+                    crate::export::csv::ms_to_timestamp(duration_ms),
+                )));
+            }
+            if seg.end_ms > duration_ms {
+                return Err(AppError::ValidationError(format!(
+                    "Segment '{}' end ({}) exceeds audio duration ({})",
+                    seg.title,
+                    crate::export::csv::ms_to_timestamp(seg.end_ms),
+                    crate::export::csv::ms_to_timestamp(duration_ms),
+                )));
+            }
+        }
+    }
+
+    let mut store = state.markers.lock();
+    store.clear();
+
+    for seg in &segments {
+        if seg.start_ms == seg.end_ms {
+            let m = store.add(seg.start_ms, MarkerKind::StartEnd);
+            store.rename_segment(m.id, seg.title.clone())?;
+        } else {
+            let start = store.add(seg.start_ms, MarkerKind::Start);
+            store.rename_segment(start.id, seg.title.clone())?;
+            store.add(seg.end_ms, MarkerKind::End);
+        }
+    }
+
+    Ok(store.list().to_vec())
 }
 
 // ---------------------------------------------------------------------------
