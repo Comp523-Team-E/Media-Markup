@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMs, kindLabel, SPEEDS } from '$lib/utils';
+import { formatMs, kindLabel, SPEEDS, parseTimeMs } from '$lib/utils';
 
 describe('formatMs', () => {
   it('formats zero as 00:00:00.000', () => {
@@ -47,6 +47,85 @@ describe('kindLabel', () => {
 
   it('returns Start+End for startEnd', () => {
     expect(kindLabel('startEnd')).toBe('Start+End');
+  });
+});
+
+describe('parseTimeMs', () => {
+  it('returns null for an empty string', () => {
+    expect(parseTimeMs('')).toBeNull();
+  });
+
+  it('returns null for whitespace-only string', () => {
+    expect(parseTimeMs('   ')).toBeNull();
+  });
+
+  it('parses plain whole seconds', () => {
+    expect(parseTimeMs('5')).toBe(5_000);
+  });
+
+  it('parses seconds greater than 59 as total seconds (no colon)', () => {
+    expect(parseTimeMs('90')).toBe(90_000);
+  });
+
+  it('parses decimal seconds — one ms digit is padded to three', () => {
+    expect(parseTimeMs('5.5')).toBe(5_500);
+  });
+
+  it('parses decimal seconds — two ms digits are padded to three', () => {
+    expect(parseTimeMs('5.50')).toBe(5_500);
+  });
+
+  it('parses decimal seconds — three ms digits exactly', () => {
+    expect(parseTimeMs('5.500')).toBe(5_500);
+  });
+
+  it('truncates milliseconds beyond three digits', () => {
+    expect(parseTimeMs('5.5009')).toBe(5_500);
+  });
+
+  it('parses MM:SS format', () => {
+    expect(parseTimeMs('1:30')).toBe(90_000);
+  });
+
+  it('parses MM:SS.m format (single ms digit)', () => {
+    expect(parseTimeMs('1:30.5')).toBe(90_500);
+  });
+
+  it('parses HH:MM:SS format', () => {
+    expect(parseTimeMs('1:30:00')).toBe(5_400_000);
+  });
+
+  it('parses HH:MM:SS.mmm — the canonical format produced by formatMs', () => {
+    expect(parseTimeMs('00:01:30.500')).toBe(90_500);
+  });
+
+  it('is the inverse of formatMs for arbitrary values', () => {
+    const ms = 12_345;
+    expect(parseTimeMs(formatMs(ms))).toBe(ms);
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(parseTimeMs('  5  ')).toBe(5_000);
+  });
+
+  it('returns null for too many colon-separated parts', () => {
+    expect(parseTimeMs('1:2:3:4')).toBeNull();
+  });
+
+  it('returns null for seconds out of range in MM:SS (1:90)', () => {
+    expect(parseTimeMs('1:90')).toBeNull();
+  });
+
+  it('returns null for minutes out of range (1:60:00)', () => {
+    expect(parseTimeMs('1:60:00')).toBeNull();
+  });
+
+  it('returns null for non-numeric input', () => {
+    expect(parseTimeMs('abc')).toBeNull();
+  });
+
+  it('returns null for partially numeric input', () => {
+    expect(parseTimeMs('1:ab')).toBeNull();
   });
 });
 

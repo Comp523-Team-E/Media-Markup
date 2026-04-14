@@ -16,6 +16,9 @@ class AppState {
   renameInputs    = $state<Record<string, string>>({});
   selectedMarkerId  = $state<string | null>(null);
   validationError   = $state<string | null>(null);
+  editingMarkerId   = $state<string | null>(null);
+  editingPositionMs = $state(0);
+  nudgeStepMs       = 100;
   unkindedMarkers = $state<Set<string>>(new Set());
   // Lets the RAF in +page.svelte skip interpolation during waveform drag
   waveformDragging = $state(false);

@@ -12,8 +12,10 @@ export function resetAppState() {
   appState.speed            = 1.0;
   appState.looping          = false;
   appState.renameInputs     = {};
-  appState.selectedMarkerId = null;
-  appState.validationError  = null;
+  appState.selectedMarkerId  = null;
+  appState.validationError   = null;
+  appState.editingMarkerId   = null;
+  appState.editingPositionMs = 0;
   appState.unkindedMarkers  = new Set();
   appState.waveformDragging = false;
   appState.syncPositionMs   = 0;

@@ -35,6 +35,12 @@
     <div class="shortcut-row"><kbd>F</kbd><span>Next Marker</span></div>
     <div class="shortcut-row"><kbd>Del</kbd><span>Delete Selected Marker</span></div>
 
+    <div class="shortcut-subheading">Edit Marker</div>
+    <div class="shortcut-row"><kbd>[</kbd><span>Nudge left 100ms</span></div>
+    <div class="shortcut-row"><kbd>]</kbd><span>Nudge right 100ms</span></div>
+    <div class="shortcut-row"><kbd>Enter</kbd><span>Confirm position</span></div>
+    <div class="shortcut-row"><kbd>Esc</kbd><span>Cancel editing</span></div>
+
     <div class="shortcut-subheading">Export</div>
     <div class="shortcut-row"><kbd>Ctrl+E</kbd><span>Export CSV</span></div>
   </div>

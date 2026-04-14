@@ -220,6 +220,98 @@ describe('handleKeydown — speed', () => {
   });
 });
 
+describe('handleKeydown — edit mode', () => {
+  it('[ auto-enters edit mode for the selected marker and nudges left', () => {
+    appState.markers = [{ id: 'm1', position: 3000, kind: 'start' }];
+    appState.selectedMarkerId = 'm1';
+    appState.durationMs = 60_000;
+    handleKeydown(keyEvent('['));
+    expect(appState.editingMarkerId).toBe('m1');
+    expect(appState.editingPositionMs).toBe(2900);
+  });
+
+  it('] auto-enters edit mode for the selected marker and nudges right', () => {
+    appState.markers = [{ id: 'm1', position: 3000, kind: 'start' }];
+    appState.selectedMarkerId = 'm1';
+    appState.durationMs = 60_000;
+    handleKeydown(keyEvent(']'));
+    expect(appState.editingMarkerId).toBe('m1');
+    expect(appState.editingPositionMs).toBe(3100);
+  });
+
+  it('[ nudges an already-editing marker without re-entering', () => {
+    appState.markers = [{ id: 'm1', position: 3000, kind: 'start' }];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 3000;
+    appState.durationMs = 60_000;
+    handleKeydown(keyEvent('['));
+    expect(appState.editingPositionMs).toBe(2900);
+  });
+
+  it('[ does nothing when no marker is selected and none is being edited', () => {
+    appState.selectedMarkerId = null;
+    appState.editingMarkerId = null;
+    appState.durationMs = 60_000;
+    handleKeydown(keyEvent('['));
+    expect(appState.editingMarkerId).toBeNull();
+  });
+
+  it('] does nothing when no marker is selected and none is being edited', () => {
+    appState.selectedMarkerId = null;
+    appState.editingMarkerId = null;
+    appState.durationMs = 60_000;
+    handleKeydown(keyEvent(']'));
+    expect(appState.editingMarkerId).toBeNull();
+  });
+
+  it('Escape cancels edit mode', () => {
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 5000;
+    handleKeydown(keyEvent('Escape'));
+    expect(appState.editingMarkerId).toBeNull();
+    expect(appState.editingPositionMs).toBe(0);
+  });
+
+  it('Escape is a no-op when not in edit mode', () => {
+    appState.editingMarkerId = null;
+    handleKeydown(keyEvent('Escape'));
+    expect(appState.editingMarkerId).toBeNull();
+  });
+
+  it('Enter confirms edit mode and invokes move_marker', async () => {
+    appState.markers = [{ id: 'm1', position: 3000, kind: 'start' }];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 5000;
+    const handler = vi.fn((cmd: string) => {
+      if (cmd === 'validate_markers') return [];
+      return undefined;
+    });
+    mockIPC(handler);
+    handleKeydown(keyEvent('Enter'));
+    await flush();
+    expect(handler).toHaveBeenCalledWith('move_marker', { id: 'm1', newPositionMs: 5000 });
+  });
+
+  it('Enter clears edit mode after confirming', async () => {
+    appState.markers = [{ id: 'm1', position: 3000, kind: 'start' }];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 5000;
+    mockIPC((cmd: string) => (cmd === 'validate_markers' ? [] : undefined));
+    handleKeydown(keyEvent('Enter'));
+    await flush();
+    expect(appState.editingMarkerId).toBeNull();
+  });
+
+  it('Enter does nothing when not in edit mode', async () => {
+    appState.editingMarkerId = null;
+    const handler = vi.fn(() => undefined);
+    mockIPC(handler);
+    handleKeydown(keyEvent('Enter'));
+    await flush();
+    expect(handler).not.toHaveBeenCalledWith('move_marker', expect.anything());
+  });
+});
+
 describe('handleKeydown — export', () => {
   it('Ctrl+e calls exportCsv', async () => {
     const handler = vi.fn(() => undefined);

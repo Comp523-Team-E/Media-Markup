@@ -80,6 +80,23 @@ describe('seekToPrevMarker', () => {
     await seekToPrevMarker();
     expect(appState.positionMs).toBe(4949);
   });
+
+  it('sets selectedMarkerId to the marker seeked to', async () => {
+    mockIPC(() => undefined);
+    appState.markers = [marker('a', 1000), marker('b', 3000)];
+    appState.positionMs = 5000;
+    await seekToPrevMarker();
+    expect(appState.selectedMarkerId).toBe('b');
+  });
+
+  it('does not change selectedMarkerId when no previous marker exists', async () => {
+    mockIPC(() => undefined);
+    appState.markers = [marker('a', 8000)];
+    appState.positionMs = 1000;
+    appState.selectedMarkerId = null;
+    await seekToPrevMarker();
+    expect(appState.selectedMarkerId).toBeNull();
+  });
 });
 
 describe('seekToNextMarker', () => {
@@ -105,6 +122,23 @@ describe('seekToNextMarker', () => {
     appState.positionMs = 5000;
     await seekToNextMarker();
     expect(appState.positionMs).toBe(5000);
+  });
+
+  it('sets selectedMarkerId to the marker seeked to', async () => {
+    mockIPC(() => undefined);
+    appState.markers = [marker('a', 7000), marker('b', 9000)];
+    appState.positionMs = 5000;
+    await seekToNextMarker();
+    expect(appState.selectedMarkerId).toBe('a');
+  });
+
+  it('does not change selectedMarkerId when no next marker exists', async () => {
+    mockIPC(() => undefined);
+    appState.markers = [marker('a', 1000)];
+    appState.positionMs = 5000;
+    appState.selectedMarkerId = null;
+    await seekToNextMarker();
+    expect(appState.selectedMarkerId).toBeNull();
   });
 });
 

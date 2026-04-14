@@ -165,6 +165,26 @@ describe('deleteMarker', () => {
     await deleteMarker('m1');
     expect(appState.error).toMatch('delete failed');
   });
+
+  it('clears editingMarkerId when deleting the marker currently being edited', async () => {
+    appState.markers = [marker('m1', 1000)];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 2000;
+    mockIPC(() => undefined);
+    await deleteMarker('m1');
+    expect(appState.editingMarkerId).toBeNull();
+    expect(appState.editingPositionMs).toBe(0);
+  });
+
+  it('does not clear editingMarkerId when deleting a different marker', async () => {
+    appState.markers = [marker('m1', 1000), marker('m2', 2000)];
+    appState.editingMarkerId = 'm2';
+    appState.editingPositionMs = 3000;
+    mockIPC(() => undefined);
+    await deleteMarker('m1');
+    expect(appState.editingMarkerId).toBe('m2');
+    expect(appState.editingPositionMs).toBe(3000);
+  });
 });
 
 describe('renameSegment', () => {

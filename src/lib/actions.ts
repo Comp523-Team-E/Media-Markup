@@ -63,12 +63,29 @@ export function handleKeydown(e: KeyboardEvent) {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
   if (!appState.metadata) return;
 
+  if (e.key === 'Escape' && appState.editingMarkerId) {
+    e.preventDefault();
+    cancelEditMode();
+    return;
+  }
+  if (e.key === 'Enter' && appState.editingMarkerId) {
+    e.preventDefault();
+    confirmEditMode();
+    return;
+  }
+
   if (e.code === 'Space') {
     e.preventDefault();
     togglePlay();
   } else if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
     e.preventDefault();
     exportCsv();
+  } else if (e.key === '[') {
+    e.preventDefault();
+    nudgeMarker(-1);
+  } else if (e.key === ']') {
+    e.preventDefault();
+    nudgeMarker(1);
   } else if (e.key === 's' || e.key === 'S') {
     e.preventDefault();
     addMarker('start');
@@ -122,14 +139,20 @@ export async function seekToPrevMarker() {
   const prev = [...appState.markers]
     .filter(m => m.position < appState.positionMs - 50)
     .sort((a, b) => b.position - a.position)[0];
-  if (prev) await seekTo(prev.position);
+  if (prev) {
+    appState.selectedMarkerId = prev.id;
+    await seekTo(prev.position);
+  }
 }
 
 export async function seekToNextMarker() {
   const next = appState.markers
     .filter(m => m.position > appState.positionMs + 50)
     .sort((a, b) => a.position - b.position)[0];
-  if (next) await seekTo(next.position);
+  if (next) {
+    appState.selectedMarkerId = next.id;
+    await seekTo(next.position);
+  }
 }
 
 export async function stepBack() {
@@ -149,10 +172,12 @@ export async function openFile() {
     appState.metadata        = meta;
     appState.durationMs      = meta.durationMs;
     appState.positionMs      = 0;
-    appState.markers         = [];
-    appState.segments        = null;
-    appState.renameInputs    = {};
+    appState.markers          = [];
+    appState.segments         = null;
+    appState.renameInputs     = {};
     appState.selectedMarkerId = null;
+    appState.editingMarkerId  = null;
+    appState.editingPositionMs = 0;
     startPolling();
     startRaf();
   } catch (e) {
@@ -237,6 +262,7 @@ export async function deleteMarker(id: string) {
     delete updated[id];
     appState.renameInputs = updated;
     if (appState.selectedMarkerId === id) appState.selectedMarkerId = null;
+    if (appState.editingMarkerId === id) { appState.editingMarkerId = null; appState.editingPositionMs = 0; }
     if (appState.unkindedMarkers.has(id)) {
       const s = new Set(appState.unkindedMarkers);
       s.delete(id);
@@ -246,6 +272,81 @@ export async function deleteMarker(id: string) {
   } catch (e) {
     appState.error = String(e);
   }
+}
+
+// ── Marker position editing ───────────────────────────────────────────────
+
+export function enterEditMode(markerId: string) {
+  const marker = appState.markers.find(m => m.id === markerId);
+  if (!marker) return;
+  appState.editingMarkerId   = markerId;
+  appState.editingPositionMs = marker.position;
+  appState.selectedMarkerId  = markerId;
+}
+
+export function cancelEditMode() {
+  appState.editingMarkerId   = null;
+  appState.editingPositionMs = 0;
+}
+
+export async function confirmEditMode() {
+  if (!appState.editingMarkerId) return;
+  const id         = appState.editingMarkerId;
+  const positionMs = Math.round(appState.editingPositionMs);
+  appState.editingMarkerId   = null;
+  appState.editingPositionMs = 0;
+  try {
+    appState.error = null;
+    await invoke('move_marker', { id, newPositionMs: positionMs });
+    appState.markers = appState.markers
+      .map(m => m.id === id ? { ...m, position: positionMs } : m)
+      .sort((a, b) => a.position - b.position);
+    await revalidate();
+  } catch (e) {
+    appState.error = String(e);
+  }
+}
+
+export function nudgeMarker(direction: -1 | 1) {
+  if (!appState.editingMarkerId) {
+    if (!appState.selectedMarkerId) return;
+    enterEditMode(appState.selectedMarkerId);
+  }
+  const newPos = appState.editingPositionMs + direction * appState.nudgeStepMs;
+  appState.editingPositionMs = Math.max(0, Math.min(newPos, appState.durationMs));
+}
+
+export function computePreviewSegments(): Segment[] {
+  if (!appState.editingMarkerId) return appState.segments ?? computePartialSegments();
+
+  const previewMarkers = appState.markers
+    .map(m => m.id === appState.editingMarkerId ? { ...m, position: appState.editingPositionMs } : m)
+    .sort((a, b) => a.position - b.position);
+
+  const result: Segment[] = [];
+  let pendingStart: Marker | null = null;
+
+  for (const m of previewMarkers) {
+    if (m.kind === 'startEnd') {
+      if (pendingStart) {
+        result.push({ startMs: pendingStart.position, endMs: m.position,
+          title: appState.renameInputs[pendingStart.id] || `Segment ${result.length}` });
+        pendingStart = m;
+      } else {
+        result.push({ startMs: m.position, endMs: m.position,
+          title: appState.renameInputs[m.id] || `Segment ${result.length}` });
+      }
+    } else if (m.kind === 'start') {
+      pendingStart = m;
+    } else if (m.kind === 'end') {
+      if (pendingStart) {
+        result.push({ startMs: pendingStart.position, endMs: m.position,
+          title: appState.renameInputs[pendingStart.id] || `Segment ${result.length}` });
+        pendingStart = null;
+      }
+    }
+  }
+  return result;
 }
 
 export async function renameSegment(anchorId: string) {

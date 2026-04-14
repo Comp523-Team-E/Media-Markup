@@ -1,26 +1,30 @@
 <script lang="ts">
   import { appState } from '$lib/state.svelte';
   import { formatMs } from '$lib/utils';
+  import { computePreviewSegments } from '$lib/actions';
 
   let { onRenameSegment }: {
     onRenameSegment: (anchorId: string) => Promise<void>;
   } = $props();
+
+  const displaySegments = $derived(computePreviewSegments());
+  const isPreviewing    = $derived(appState.editingMarkerId !== null);
 </script>
 
 <div class="panel">
   <div class="panel-header">
-    <h3 class="panel-title">Segments ({appState.segments?.length ?? 0})</h3>
+    <h3 class="panel-title">Segments ({displaySegments.length})</h3>
   </div>
 
   {#if appState.validationError}
     <p class="validation-error">{appState.validationError}</p>
   {/if}
 
-  {#if appState.segments === null || appState.segments.length === 0}
+  {#if displaySegments.length === 0}
     <p class="empty-state">No segments yet. Add start and end markers to create segments.</p>
   {:else}
-    <div class="segment-list">
-      {#each [...appState.segments].sort((a, b) => b.endMs - a.endMs) as seg, i}
+    <div class="segment-list" class:segment-list-preview={isPreviewing}>
+      {#each [...displaySegments].sort((a, b) => b.endMs - a.endMs) as seg, i}
         <div class="segment-row">
           <span class="seg-index">{String(i + 1).padStart(3, '0')}</span>
           <div class="seg-times">
@@ -149,4 +153,6 @@
 
   .seg-title-input:focus { border-color: #2563eb; background: #1a2332; }
   .seg-title-input::placeholder { color: #4d5b6b; }
+
+  .segment-list-preview { opacity: 0.75; }
 </style>

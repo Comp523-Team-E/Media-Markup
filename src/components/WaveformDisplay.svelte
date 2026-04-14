@@ -104,13 +104,30 @@
   <div class="waveform-inner" bind:this={waveformEl}></div>
   <!-- Marker overlays -->
   {#each appState.markers as m (m.id)}
-    {@const pct = appState.durationMs > 0 ? (m.position / appState.durationMs) * 100 : 0}
-    <div
-      class="marker-line"
-      class:marker-selected={appState.selectedMarkerId === m.id}
-      style="left: {pct}%"
-      title="{kindLabel(m.kind)} — {formatMs(m.position)}"
-    ></div>
+    {@const isEditing = appState.editingMarkerId === m.id}
+    {@const draftPct  = appState.durationMs > 0 ? (appState.editingPositionMs / appState.durationMs) * 100 : 0}
+    {@const origPct   = appState.durationMs > 0 ? (m.position / appState.durationMs) * 100 : 0}
+    {#if isEditing}
+      <!-- Ghost at original position -->
+      <div
+        class="marker-line marker-ghost"
+        style="left: {origPct}%"
+        title="Original — {formatMs(m.position)}"
+      ></div>
+      <!-- Draft at new position -->
+      <div
+        class="marker-line marker-editing"
+        style="left: {draftPct}%"
+        title="{kindLabel(m.kind)} — {formatMs(appState.editingPositionMs)}"
+      ></div>
+    {:else}
+      <div
+        class="marker-line"
+        class:marker-selected={appState.selectedMarkerId === m.id}
+        style="left: {origPct}%"
+        title="{kindLabel(m.kind)} — {formatMs(m.position)}"
+      ></div>
+    {/if}
   {/each}
 </div>
 
@@ -147,5 +164,22 @@
     opacity: 1;
     width: 2px;
     box-shadow: 0 0 6px #facc15;
+  }
+
+  .marker-line.marker-ghost {
+    background: #22c55e;
+    opacity: 0.3;
+  }
+
+  .marker-line.marker-editing {
+    background: #f97316;
+    opacity: 1;
+    box-shadow: 0 0 8px #f97316;
+    animation: editing-pulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes editing-pulse {
+    from { opacity: 0.6; }
+    to   { opacity: 1; }
   }
 </style>
