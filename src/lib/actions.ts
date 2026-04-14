@@ -407,10 +407,10 @@ export async function exportCsv() {
   }
 }
 
-export async function exportAudioSegments() {
+export async function exportAudioSegments(exportCsv: boolean, exportAudio: boolean) {
   try {
     appState.error = null;
-    await invoke('export_audio_segments');
+    await invoke('export_audio_segments', {exportCsv, exportAudio});
   } catch (e) {
     appState.error = String(e);
   }

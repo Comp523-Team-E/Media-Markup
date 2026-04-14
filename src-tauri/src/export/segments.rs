@@ -29,6 +29,8 @@ async fn export_segments_inner<F, Fut>(
     source_file: &str,
     segments: &[Segment],
     output_dir: &Path,
+    export_csv: bool, 
+    export_audio: bool,
     mut run_ffmpeg: F,
 ) -> Result<u32>
 where
@@ -65,18 +67,21 @@ where
             output_path.to_str().unwrap_or_default().to_string(),
         ];
 
-        let (success, stderr) = run_ffmpeg(args).await?;
-
-        if !success {
-            let stderr_str = String::from_utf8_lossy(&stderr).into_owned();
-            return Err(AppError::FfmpegFailed(filename, stderr_str));
+        if export_audio {
+            let (success, stderr) = run_ffmpeg(args).await?;
+            if !success {
+                let stderr_str = String::from_utf8_lossy(&stderr).into_owned();
+                return Err(AppError::FfmpegFailed(filename, stderr_str));
+            }
         }
     }
 
     // Write the CSV index file.
-    let csv_path = output_dir.join(format!("{}.csv", stem));
-    let csv_file = std::fs::File::create(csv_path)?;
-    write_csv(csv_file, segments)?;
+    if export_csv {
+        let csv_path = output_dir.join(format!("{}.csv", stem));
+        let csv_file = std::fs::File::create(csv_path)?;
+        write_csv(csv_file, segments)?;
+    }
 
     Ok(segments.len() as u32)
 }
@@ -92,6 +97,8 @@ pub async fn export_segments<R: Runtime>(
     source_file: &str,
     segments: &[Segment],
     output_dir: &Path,
+    export_csv: bool,
+    export_audio: bool,
 ) -> Result<u32> {
     let app = app.clone();
     let source_file = source_file.to_string();
@@ -99,6 +106,8 @@ pub async fn export_segments<R: Runtime>(
         &source_file,
         segments,
         output_dir,
+        export_csv, 
+        export_audio,
         move |args| {
             let app = app.clone();
             async move {
@@ -169,6 +178,8 @@ mod tests {
             "test.wav",
             &[],
             dir.path(),
+            true, 
+            true, 
             |_args| async { Ok((true, Vec::new())) },
         ));
         assert_eq!(result.unwrap(), 0);
@@ -183,6 +194,8 @@ mod tests {
             "track.mp3",
             &segments,
             dir.path(),
+            true, 
+            true, 
             |_args| async { Ok((true, Vec::new())) },
         ));
         assert_eq!(result.unwrap(), 2);
@@ -196,6 +209,8 @@ mod tests {
             "/path/to/my_track.wav",
             &segments,
             dir.path(),
+            true, 
+            true,
             |_args| async { Ok((true, Vec::new())) },
         ))
         .unwrap();
@@ -210,6 +225,8 @@ mod tests {
             "noext",
             &segments,
             dir.path(),
+            true, 
+            true,
             |args| {
                 // Verify the output filename ends with .mp3
                 let out_arg = args.last().unwrap().clone();
@@ -230,6 +247,8 @@ mod tests {
             "test.wav",
             &segments,
             dir.path(),
+            true, 
+            true, 
             |_args| async { Ok((false, b"codec error".to_vec())) },
         ));
         match result {
@@ -249,6 +268,8 @@ mod tests {
             "test.wav",
             &segments,
             dir.path(),
+            true, 
+            true,
             |_args| async {
                 Err(AppError::FfmpegNotFound("sidecar unavailable".into()))
             },
@@ -265,6 +286,8 @@ mod tests {
             "test.wav",
             &[],
             &nested,
+            true, 
+            true, 
             |_args| async { Ok((true, Vec::new())) },
         ))
         .unwrap();

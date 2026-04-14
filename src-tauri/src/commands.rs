@@ -207,6 +207,8 @@ pub async fn validate_markers(state: State<'_, AppState>) -> Result<Vec<Segment>
 pub async fn export_audio_segments(
     app: AppHandle,
     state: State<'_, AppState>,
+    export_csv: bool, 
+    export_audio: bool, 
 ) -> Result<u32> {
     use tauri_plugin_dialog::DialogExt;
 
@@ -230,7 +232,7 @@ pub async fn export_audio_segments(
         .as_path()
         .ok_or_else(|| AppError::ValidationError("Invalid output directory path".into()))?;
 
-    export_segments(&app, &source_path, &segments, output_path).await
+    export_segments(&app, &source_path, &segments, output_path, export_csv, export_audio).await
 }
 
 // ---------------------------------------------------------------------------
