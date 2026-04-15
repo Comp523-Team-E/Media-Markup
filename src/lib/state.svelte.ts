@@ -29,6 +29,10 @@ class AppState {
 
   // ── WaveSurfer instance (non-reactive, set by WaveformDisplay) ────────
   wavesurfer: WaveSurfer | null = null;
+
+  // ── Zoom (reactive) + scroll container ref (non-reactive) ─────────────
+  zoomLevel = $state(1);  // multiplier: 1 | 2 | 4 | 8 | 16
+  waveformWrapEl: HTMLDivElement | null = null;
 }
 
 export const appState = new AppState();

@@ -2,15 +2,23 @@
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import WaveSurfer from 'wavesurfer.js';
   import { appState } from '$lib/state.svelte';
-  import { kindLabel, formatMs } from '$lib/utils';
+  import { kindLabel, formatMs, ZOOM_LEVELS } from '$lib/utils';
 
-  let waveformEl = $state<HTMLDivElement | null>(null);
+  let waveformEl     = $state<HTMLDivElement | null>(null);
+  let waveformWrapEl = $state<HTMLDivElement | null>(null);
+
+  // Expose the wrap element so external code can scroll it if needed
+  $effect(() => { appState.waveformWrapEl = waveformWrapEl; });
 
   // Initialize (or reinitialize) WaveSurfer whenever the loaded file changes.
   // The cleanup function runs on component destroy or before re-running.
   $effect(() => {
     const filePath = appState.metadata?.filePath;
     if (!filePath || !waveformEl) return;
+
+    // Reset zoom and scroll when a new file is loaded
+    appState.zoomLevel = 1;
+    if (waveformWrapEl) waveformWrapEl.scrollLeft = 0;
 
     const ws = WaveSurfer.create({
       container: waveformEl,
@@ -34,6 +42,29 @@
     };
   });
 
+  // Auto-scroll to keep playhead centered during playback
+  $effect(() => {
+    const pos = appState.positionMs; // reactive dependency
+    if (!waveformWrapEl || appState.waveformDragging || appState.zoomLevel <= 1) return;
+    if (!appState.isPlaying) return;
+    const pct = appState.durationMs > 0 ? pos / appState.durationMs : 0;
+    const total = waveformWrapEl.scrollWidth;
+    const visible = waveformWrapEl.clientWidth;
+    waveformWrapEl.scrollLeft = Math.max(0, pct * total - visible / 2);
+  });
+
+  // ── Zoom controls ──────────────────────────────────────────────────────
+
+  function zoomIn() {
+    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
+    if (i < ZOOM_LEVELS.length - 1) appState.zoomLevel = ZOOM_LEVELS[i + 1];
+  }
+
+  function zoomOut() {
+    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
+    if (i > 0) appState.zoomLevel = ZOOM_LEVELS[i - 1];
+  }
+
   // ── Waveform drag seeking ──────────────────────────────────────────────
   // We own pointer events on the container so the playhead moves in real-time.
 
@@ -41,6 +72,8 @@
 
   function waveformPosFromEvent(e: PointerEvent): number {
     if (!waveformEl) return 0;
+    // getBoundingClientRect returns screen coords accounting for scroll offset,
+    // so this calculation is correct even when the waveform is zoomed and scrolled.
     const rect = waveformEl.getBoundingClientRect();
     const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     return pct * appState.durationMs;
@@ -88,8 +121,25 @@
   }
 </script>
 
+<div class="zoom-controls">
+  <button
+    class="zoom-btn"
+    onclick={zoomOut}
+    disabled={!appState.metadata || appState.zoomLevel <= 1}
+    title="Zoom out"
+  >−</button>
+  <span class="zoom-label">{appState.zoomLevel}x</span>
+  <button
+    class="zoom-btn"
+    onclick={zoomIn}
+    disabled={!appState.metadata || appState.zoomLevel >= 16}
+    title="Zoom in"
+  >+</button>
+</div>
+
 <div
   class="waveform-wrap"
+  bind:this={waveformWrapEl}
   role="slider"
   aria-label="Playback position"
   aria-valuemin={0}
@@ -101,37 +151,75 @@
   onpointerup={handlePointerUp}
   onpointercancel={handlePointerUp}
 >
-  <div class="waveform-inner" bind:this={waveformEl}></div>
-  <!-- Marker overlays -->
-  {#each appState.markers as m (m.id)}
-    {@const isEditing = appState.editingMarkerId === m.id}
-    {@const draftPct  = appState.durationMs > 0 ? (appState.editingPositionMs / appState.durationMs) * 100 : 0}
-    {@const origPct   = appState.durationMs > 0 ? (m.position / appState.durationMs) * 100 : 0}
-    {#if isEditing}
-      <!-- Ghost at original position -->
-      <div
-        class="marker-line marker-ghost"
-        style="left: {origPct}%"
-        title="Original — {formatMs(m.position)}"
-      ></div>
-      <!-- Draft at new position -->
-      <div
-        class="marker-line marker-editing"
-        style="left: {draftPct}%"
-        title="{kindLabel(m.kind)} — {formatMs(appState.editingPositionMs)}"
-      ></div>
-    {:else}
-      <div
-        class="marker-line"
-        class:marker-selected={appState.selectedMarkerId === m.id}
-        style="left: {origPct}%"
-        title="{kindLabel(m.kind)} — {formatMs(m.position)}"
-      ></div>
-    {/if}
-  {/each}
+  <div class="waveform-scroll" style="width: {appState.zoomLevel * 100}%">
+    <div class="waveform-inner" bind:this={waveformEl}></div>
+    <!-- Marker overlays — left: pct% is relative to waveform-scroll, same width as the waveform -->
+    {#each appState.markers as m (m.id)}
+      {@const isEditing = appState.editingMarkerId === m.id}
+      {@const draftPct  = appState.durationMs > 0 ? (appState.editingPositionMs / appState.durationMs) * 100 : 0}
+      {@const origPct   = appState.durationMs > 0 ? (m.position / appState.durationMs) * 100 : 0}
+      {#if isEditing}
+        <!-- Ghost at original position -->
+        <div
+          class="marker-line marker-ghost"
+          style="left: {origPct}%"
+          title="Original — {formatMs(m.position)}"
+        ></div>
+        <!-- Draft at new position -->
+        <div
+          class="marker-line marker-editing"
+          style="left: {draftPct}%"
+          title="{kindLabel(m.kind)} — {formatMs(appState.editingPositionMs)}"
+        ></div>
+      {:else}
+        <div
+          class="marker-line"
+          class:marker-selected={appState.selectedMarkerId === m.id}
+          style="left: {origPct}%"
+          title="{kindLabel(m.kind)} — {formatMs(m.position)}"
+        ></div>
+      {/if}
+    {/each}
+  </div>
 </div>
 
 <style>
+  .zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    background: #0f1419;
+    border-bottom: 1px solid #21262d;
+  }
+
+  .zoom-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: #1e2a3a;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    color: #8b949e;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .zoom-btn:hover:not(:disabled) { color: #e2e8f0; border-color: #4d6a8a; }
+  .zoom-btn:disabled { opacity: 0.35; cursor: default; }
+
+  .zoom-label {
+    font-size: 11px;
+    color: #8b949e;
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
   .waveform-wrap {
     position: relative;
     width: 100%;
@@ -139,11 +227,19 @@
     flex-shrink: 0;
     background: #0d1117;
     border-bottom: 1px solid #21262d;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .waveform-scroll {
+    position: relative;
+    height: 100%;
+    min-width: 100%;
   }
 
   .waveform-inner {
     width: 100%;
+    height: 100%;
   }
 
   .marker-line {

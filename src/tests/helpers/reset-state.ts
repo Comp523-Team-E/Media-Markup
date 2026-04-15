@@ -21,4 +21,6 @@ export function resetAppState() {
   appState.syncPositionMs   = 0;
   appState.syncWallTime     = 0;
   appState.wavesurfer       = null;
+  appState.zoomLevel        = 1;
+  appState.waveformWrapEl   = null;
 }

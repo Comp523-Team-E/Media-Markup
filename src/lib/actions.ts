@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { appState } from './state.svelte';
-import { SPEEDS } from './utils';
+import { SPEEDS, ZOOM_LEVELS } from './utils';
 import type { FileMetadata, PlaybackPosition, Marker, Segment, MarkerKind } from './types';
 
 // ── Position polling + interpolation ─────────────────────────────────────
@@ -116,6 +116,14 @@ export function handleKeydown(e: KeyboardEvent) {
     e.preventDefault();
     const idx = parseInt(e.key) - 1;
     if (SPEEDS[idx] !== undefined) setSpeed(SPEEDS[idx]);
+  } else if (e.key === '-') {
+    e.preventDefault();
+    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
+    if (i > 0) appState.zoomLevel = ZOOM_LEVELS[i - 1];
+  } else if (e.key === '+' || e.key === '=') {
+    e.preventDefault();
+    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
+    if (i < ZOOM_LEVELS.length - 1) appState.zoomLevel = ZOOM_LEVELS[i + 1];
   }
 }
 
@@ -129,6 +137,14 @@ export async function seekTo(ms: number) {
     appState.syncWallTime   = performance.now();
     if (appState.wavesurfer && appState.durationMs > 0) {
       appState.wavesurfer.setTime(ms / 1000);
+    }
+    // Scroll waveform to keep the new position visible when zoomed
+    const wrap = appState.waveformWrapEl;
+    if (wrap && appState.zoomLevel > 1 && appState.durationMs > 0) {
+      const pct     = ms / appState.durationMs;
+      const total   = wrap.scrollWidth;
+      const visible = wrap.clientWidth;
+      wrap.scrollLeft = Math.max(0, pct * total - visible / 2);
     }
   } catch (e) {
     appState.error = String(e);

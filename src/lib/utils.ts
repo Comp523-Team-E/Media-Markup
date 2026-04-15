@@ -20,6 +20,7 @@ export function kindLabel(kind: MarkerKind): string {
 }
 
 export const SPEEDS = [0.5, 0.75, 1, 1.5, 2];
+export const ZOOM_LEVELS = [1, 2, 4, 8, 16];
 
 // Parses a flexible time string back to milliseconds. Accepted formats:
 //   "5"          → 5 seconds

@@ -25,6 +25,10 @@
     </div>
     <div class="shortcut-row"><kbd>1–5</kbd><span>Playback Speed</span></div>
 
+    <div class="shortcut-subheading">Waveform Zoom</div>
+    <div class="shortcut-row"><kbd>-</kbd><span>Zoom out</span></div>
+    <div class="shortcut-row"><kbd>+</kbd><span>Zoom in</span></div>
+
     <div class="shortcut-subheading">Add Marker</div>
     <div class="shortcut-row"><kbd>S</kbd><span>Start</span></div>
     <div class="shortcut-row"><kbd>E</kbd><span>End</span></div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMs, kindLabel, SPEEDS, parseTimeMs } from '$lib/utils';
+import { formatMs, kindLabel, SPEEDS, ZOOM_LEVELS, parseTimeMs } from '$lib/utils';
 
 describe('formatMs', () => {
   it('formats zero as 00:00:00.000', () => {
@@ -126,6 +126,33 @@ describe('parseTimeMs', () => {
 
   it('returns null for partially numeric input', () => {
     expect(parseTimeMs('1:ab')).toBeNull();
+  });
+});
+
+describe('ZOOM_LEVELS', () => {
+  it('starts at 1 (no zoom)', () => {
+    expect(ZOOM_LEVELS[0]).toBe(1);
+  });
+
+  it('ends at 16 (maximum zoom)', () => {
+    expect(ZOOM_LEVELS[ZOOM_LEVELS.length - 1]).toBe(16);
+  });
+
+  it('has at least 3 steps', () => {
+    expect(ZOOM_LEVELS.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('is sorted in strictly ascending order', () => {
+    for (let i = 1; i < ZOOM_LEVELS.length; i++) {
+      expect(ZOOM_LEVELS[i]).toBeGreaterThan(ZOOM_LEVELS[i - 1]);
+    }
+  });
+
+  it('contains only positive integers', () => {
+    for (const level of ZOOM_LEVELS) {
+      expect(level).toBeGreaterThan(0);
+      expect(Number.isInteger(level)).toBe(true);
+    }
   });
 });
 

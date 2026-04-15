@@ -312,6 +312,56 @@ describe('handleKeydown — edit mode', () => {
   });
 });
 
+describe('handleKeydown — zoom', () => {
+  it('- key decrements zoom level', () => {
+    appState.zoomLevel = 4;
+    handleKeydown(keyEvent('-'));
+    expect(appState.zoomLevel).toBe(2);
+  });
+
+  it('- key does nothing when already at minimum zoom (1)', () => {
+    appState.zoomLevel = 1;
+    handleKeydown(keyEvent('-'));
+    expect(appState.zoomLevel).toBe(1);
+  });
+
+  it('+ key increments zoom level', () => {
+    appState.zoomLevel = 2;
+    handleKeydown(keyEvent('+'));
+    expect(appState.zoomLevel).toBe(4);
+  });
+
+  it('= key also increments zoom level (unshifted + key)', () => {
+    appState.zoomLevel = 2;
+    handleKeydown(keyEvent('='));
+    expect(appState.zoomLevel).toBe(4);
+  });
+
+  it('+ key does nothing when already at maximum zoom (16)', () => {
+    appState.zoomLevel = 16;
+    handleKeydown(keyEvent('+'));
+    expect(appState.zoomLevel).toBe(16);
+  });
+
+  it('stepping through all levels with + reaches maximum', () => {
+    appState.zoomLevel = 1;
+    handleKeydown(keyEvent('+'));
+    handleKeydown(keyEvent('+'));
+    handleKeydown(keyEvent('+'));
+    handleKeydown(keyEvent('+'));
+    expect(appState.zoomLevel).toBe(16);
+  });
+
+  it('stepping back through all levels with - reaches minimum', () => {
+    appState.zoomLevel = 16;
+    handleKeydown(keyEvent('-'));
+    handleKeydown(keyEvent('-'));
+    handleKeydown(keyEvent('-'));
+    handleKeydown(keyEvent('-'));
+    expect(appState.zoomLevel).toBe(1);
+  });
+});
+
 describe('handleKeydown — export', () => {
   it('Ctrl+e calls exportCsv', async () => {
     const handler = vi.fn(() => undefined);

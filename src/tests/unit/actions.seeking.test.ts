@@ -181,3 +181,63 @@ describe('stepFwd', () => {
     expect(appState.positionMs).toBe(60_000);
   });
 });
+
+// Helper that builds a minimal HTMLDivElement stand-in for the waveform scroll container.
+// scrollWidth / clientWidth are read-only on real elements, so we use a plain object cast.
+function makeWrapEl(scrollWidth: number, clientWidth: number): HTMLDivElement {
+  return { scrollLeft: 0, scrollWidth, clientWidth } as unknown as HTMLDivElement;
+}
+
+describe('seekTo — waveform scroll sync', () => {
+  it('does not touch scrollLeft when zoomLevel is 1', async () => {
+    mockIPC(() => undefined);
+    const wrap = makeWrapEl(1000, 200);
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 1;
+    appState.durationMs = 10_000;
+    await seekTo(5000);
+    expect(wrap.scrollLeft).toBe(0);
+  });
+
+  it('scrolls to center the playhead when zoomed', async () => {
+    mockIPC(() => undefined);
+    // 2x zoom: total scrollWidth = 1000, clientWidth = 200
+    // Seeking to 50% of a 10s file → target = 0.5 * 1000 - 200/2 = 400
+    const wrap = makeWrapEl(1000, 200);
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    await seekTo(5000);
+    expect(wrap.scrollLeft).toBe(400);
+  });
+
+  it('clamps scrollLeft to 0 when computed target is negative', async () => {
+    mockIPC(() => undefined);
+    // Seeking near the start: target = 0.01 * 1000 - 100 = -90 → clamp to 0
+    const wrap = makeWrapEl(1000, 200);
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    await seekTo(100);
+    expect(wrap.scrollLeft).toBe(0);
+  });
+
+  it('does not scroll when waveformWrapEl is null', async () => {
+    mockIPC(() => undefined);
+    appState.waveformWrapEl = null;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    // Should not throw
+    await expect(seekTo(5000)).resolves.toBeUndefined();
+  });
+
+  it('does not scroll when durationMs is 0', async () => {
+    mockIPC(() => undefined);
+    const wrap = makeWrapEl(1000, 200);
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 0;
+    await seekTo(0);
+    expect(wrap.scrollLeft).toBe(0);
+  });
+});
