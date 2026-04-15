@@ -9,7 +9,9 @@
 #   aarch64-apple-darwin       (macOS Apple Silicon)
 #   x86_64-apple-darwin        (macOS Intel)
 #   x86_64-unknown-linux-gnu   (Linux x64)
+#   aarch64-unknown-linux-gnu  (Linux ARM64)
 #   x86_64-pc-windows-msvc     (Windows x64, requires bash e.g. Git Bash / WSL)
+#   aarch64-pc-windows-msvc    (Windows ARM64, requires bash e.g. Git Bash / WSL)
 
 set -euo pipefail
 
@@ -113,9 +115,49 @@ download_linux_x64() {
     trap "rm -rf '$tmpdir'" EXIT
 
     curl -fsSL -o "$tmpdir/ffmpeg.tar.xz" "$asset_url"
-    tar -xJf "$tmpdir/ffmpeg.tar.xz" -C "$tmpdir" --wildcards "*/bin/ffmpeg" --strip-components=2
+    tar -xJf "$tmpdir/ffmpeg.tar.xz" -C "$tmpdir"
+    find "$tmpdir" -name "ffmpeg" -type f -exec cp {} "$dest" \;
 
-    cp "$tmpdir/ffmpeg" "$dest"
+    chmod +x "$dest"
+    log "Installed: $dest"
+}
+
+# Download Linux ARM64 binary from BtbN/FFmpeg-Builds (GPL static build).
+download_linux_arm64() {
+    local triple="aarch64-unknown-linux-gnu"
+    local dest="$BINARIES_DIR/ffmpeg-${triple}"
+
+    if sidecar_ready "$dest"; then
+        return 0
+    fi
+
+    require_cmd curl
+    require_cmd tar
+
+    log "Fetching latest BtbN release info..."
+    local asset_url
+    asset_url="$(
+        curl -fsSL "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest" \
+        | grep -o '"browser_download_url": *"[^"]*linuxarm64-gpl[^"]*\.tar\.xz"' \
+        | grep -v "shared" \
+        | head -1 \
+        | sed 's/.*"\(https[^"]*\)".*/\1/'
+    )"
+
+    if [[ -z "$asset_url" ]]; then
+        echo "Error: Could not determine Linux ARM64 ffmpeg download URL from BtbN releases." >&2
+        exit 1
+    fi
+
+    log "Downloading $asset_url ..."
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    trap "rm -rf '$tmpdir'" EXIT
+
+    curl -fsSL -o "$tmpdir/ffmpeg.tar.xz" "$asset_url"
+    tar -xJf "$tmpdir/ffmpeg.tar.xz" -C "$tmpdir"
+    find "$tmpdir" -name "ffmpeg" -type f -exec cp {} "$dest" \;
+
     chmod +x "$dest"
     log "Installed: $dest"
 }
@@ -159,6 +201,45 @@ download_windows_x64() {
     log "Installed: $dest"
 }
 
+# Download Windows ARM64 binary from BtbN/FFmpeg-Builds (GPL static build).
+download_windows_arm64() {
+    local triple="aarch64-pc-windows-msvc"
+    local dest="$BINARIES_DIR/ffmpeg-${triple}.exe"
+
+    if sidecar_ready "$dest"; then
+        return 0
+    fi
+
+    require_cmd curl
+    require_cmd unzip
+
+    log "Fetching latest BtbN release info..."
+    local asset_url
+    asset_url="$(
+        curl -fsSL "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest" \
+        | grep -o '"browser_download_url": *"[^"]*winarm64-gpl[^"]*\.zip"' \
+        | grep -v "shared" \
+        | head -1 \
+        | sed 's/.*"\(https[^"]*\)".*/\1/'
+    )"
+
+    if [[ -z "$asset_url" ]]; then
+        echo "Error: Could not determine Windows ARM64 ffmpeg download URL from BtbN releases." >&2
+        exit 1
+    fi
+
+    log "Downloading $asset_url ..."
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    trap "rm -rf '$tmpdir'" EXIT
+
+    curl -fsSL -o "$tmpdir/ffmpeg.zip" "$asset_url"
+    unzip -q "$tmpdir/ffmpeg.zip" "*/bin/ffmpeg.exe" -d "$tmpdir"
+    find "$tmpdir" -name "ffmpeg.exe" -exec cp {} "$dest" \;
+
+    log "Installed: $dest"
+}
+
 # ---------------------------------------------------------------------------
 # Detect host and dispatch
 # ---------------------------------------------------------------------------
@@ -179,12 +260,17 @@ detect_and_download_host() {
             ;;
         Linux)
             case "$arch" in
-                x86_64) download_linux_x64 ;;
-                *) echo "Unsupported Linux arch: $arch (only x86_64 supported)" >&2; exit 1 ;;
+                x86_64)  download_linux_x64 ;;
+                aarch64) download_linux_arm64 ;;
+                *) echo "Unsupported Linux arch: $arch (only x86_64 and aarch64 supported)" >&2; exit 1 ;;
             esac
             ;;
         MINGW*|MSYS*|CYGWIN*)
-            download_windows_x64
+            case "$arch" in
+                x86_64)  download_windows_x64 ;;
+                aarch64) download_windows_arm64 ;;
+                *) echo "Unsupported Windows arch: $arch (only x86_64 and aarch64 supported)" >&2; exit 1 ;;
+            esac
             ;;
         *)
             echo "Unsupported OS: $os" >&2
@@ -203,7 +289,9 @@ case "${1:-}" in
         download_macos "aarch64-apple-darwin"
         download_macos "x86_64-apple-darwin"
         download_linux_x64
+        download_linux_arm64
         download_windows_x64
+        download_windows_arm64
         log "Done. All binaries written to $BINARIES_DIR/"
         ;;
     "")
