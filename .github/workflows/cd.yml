@@ -1,0 +1,182 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (ARM64)
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            os: macos
+            bundles: dmg
+          - name: macOS (x86_64)
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            os: macos
+            bundles: dmg
+          - name: Linux (x86_64)
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            os: linux
+            bundles: deb
+          - name: Linux (ARM64)
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            os: linux
+            bundles: deb
+          - name: Windows (x86_64)
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            os: windows
+            bundles: msi
+          - name: Windows (ARM64)
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            os: windows
+            bundles: msi
+            cross: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            patchelf
+
+      # ── macOS code-signing & notarization setup ──────────────────────
+      #
+      # Required repository secrets for macOS builds:
+      #   APPLE_CERTIFICATE          – base64-encoded Developer ID Application .p12
+      #   APPLE_CERTIFICATE_PASSWORD – password for the .p12 file
+      #   APPLE_SIGNING_IDENTITY     – e.g. "Developer ID Application: Name (TEAMID)"
+      #   APPLE_API_ISSUER           – App Store Connect API Issuer ID (UUID)
+      #   APPLE_API_KEY              – App Store Connect API Key ID
+      #   APPLE_API_KEY_CONTENT      – base64-encoded .p8 private key
+
+      - name: Check Apple signing secrets
+        id: signing
+        if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          if [[ "$ALL_SET" == "true" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Apple signing secrets not configured — build will not be signed or notarized"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          ALL_SET: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY != '' && secrets.APPLE_API_KEY_CONTENT != '' }}
+
+      - name: Import Apple certificate
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      - name: Write Apple API key
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          KEY_DIR="$RUNNER_TEMP/apple-keys"
+          mkdir -p "$KEY_DIR"
+          echo -n "$APPLE_API_KEY_CONTENT" | base64 --decode > "$KEY_DIR/AuthKey.p8"
+          echo "APPLE_API_KEY_PATH=$KEY_DIR/AuthKey.p8" >> "$GITHUB_ENV"
+
+      # ── Build prerequisites ──────────────────────────────────────────
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download FFmpeg sidecar
+        shell: bash
+        run: bash scripts/download-ffmpeg.sh --target ${{ matrix.target }}
+
+      # ── Tauri build & release ────────────────────────────────────────
+
+      - name: Build and upload to release (signed)
+        if: steps.signing.outputs.enabled == 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "media-markup ${{ github.ref_name }}"
+          releaseBody: "See the assets below for download links."
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Build and upload to release (unsigned)
+        if: steps.signing.outputs.enabled != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "media-markup ${{ github.ref_name }}"
+          releaseBody: "See the assets below for download links."
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
