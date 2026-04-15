@@ -20,26 +20,32 @@ jobs:
             runner: macos-latest
             target: aarch64-apple-darwin
             os: macos
+            bundles: dmg
           - name: macOS (x86_64)
-            runner: macos-13
+            runner: macos-latest
             target: x86_64-apple-darwin
             os: macos
+            bundles: dmg
           - name: Linux (x86_64)
             runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             os: linux
+            bundles: deb
           - name: Linux (ARM64)
             runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             os: linux
+            bundles: deb
           - name: Windows (x86_64)
             runner: windows-latest
             target: x86_64-pc-windows-msvc
             os: windows
+            bundles: msi
           - name: Windows (ARM64)
             runner: windows-latest
             target: aarch64-pc-windows-msvc
             os: windows
+            bundles: msi
             cross: true
 
     steps:
@@ -83,8 +89,22 @@ jobs:
       #   APPLE_API_KEY              – App Store Connect API Key ID
       #   APPLE_API_KEY_CONTENT      – base64-encoded .p8 private key
 
-      - name: Import Apple certificate
+      - name: Check Apple signing secrets
+        id: signing
         if: matrix.os == 'macos'
+        shell: bash
+        run: |
+          if [[ "$ALL_SET" == "true" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Apple signing secrets not configured — build will not be signed or notarized"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          ALL_SET: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY != '' && secrets.APPLE_API_KEY_CONTENT != '' }}
+
+      - name: Import Apple certificate
+        if: steps.signing.outputs.enabled == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -105,7 +125,7 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
       - name: Write Apple API key
-        if: matrix.os == 'macos'
+        if: steps.signing.outputs.enabled == 'true'
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
         run: |
@@ -126,32 +146,13 @@ jobs:
         run: npm ci
 
       - name: Download FFmpeg sidecar
-        if: ${{ !matrix.cross }}
         shell: bash
-        run: bash scripts/download-ffmpeg.sh
-
-      - name: Download FFmpeg sidecar (Windows ARM64 cross-compile)
-        if: matrix.target == 'aarch64-pc-windows-msvc'
-        shell: bash
-        run: |
-          mkdir -p src-tauri/binaries
-          ASSET_URL="$(
-            curl -fsSL "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest" \
-              | grep -o '"browser_download_url": *"[^"]*winarm64-gpl[^"]*\.zip"' \
-              | grep -v "shared" \
-              | head -1 \
-              | sed 's/.*"\(https[^"]*\)".*/\1/'
-          )"
-          TMPDIR="$(mktemp -d)"
-          curl -fsSL -o "$TMPDIR/ffmpeg.zip" "$ASSET_URL"
-          unzip -q "$TMPDIR/ffmpeg.zip" "*/bin/ffmpeg.exe" -d "$TMPDIR"
-          find "$TMPDIR" -name "ffmpeg.exe" \
-            -exec cp {} "src-tauri/binaries/ffmpeg-aarch64-pc-windows-msvc.exe" \;
-          rm -rf "$TMPDIR"
+        run: bash scripts/download-ffmpeg.sh --target ${{ matrix.target }}
 
       # ── Tauri build & release ────────────────────────────────────────
 
-      - name: Build and upload to release
+      - name: Build and upload to release (signed)
+        if: steps.signing.outputs.enabled == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -165,4 +166,17 @@ jobs:
           releaseBody: "See the assets below for download links."
           releaseDraft: true
           prerelease: false
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Build and upload to release (unsigned)
+        if: steps.signing.outputs.enabled != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "media-markup ${{ github.ref_name }}"
+          releaseBody: "See the assets below for download links."
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}

@@ -23,9 +23,10 @@ jobs:
             target: aarch64-apple-darwin
             os: macos
           - name: macOS (x86_64)
-            runner: macos-13
+            runner: macos-latest
             target: x86_64-apple-darwin
             os: macos
+            cross: true
           - name: Linux (x86_64)
             runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
@@ -91,7 +92,7 @@ jobs:
 
       - name: Run FFmpeg download script
         shell: bash
-        run: bash scripts/download-ffmpeg.sh
+        run: bash scripts/download-ffmpeg.sh --target ${{ matrix.target }}
 
       - name: Verify FFmpeg sidecar
         shell: bash
