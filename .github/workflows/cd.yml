@@ -115,16 +115,11 @@ jobs:
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
 
           CLEANED=$(printf '%s' "$APPLE_CERTIFICATE" | tr -d '\n\r\t ')
-          echo "APPLE_CERTIFICATE length (raw):     ${#APPLE_CERTIFICATE}"
-          echo "APPLE_CERTIFICATE length (cleaned): ${#CLEANED}"
           if [ -z "$CLEANED" ]; then
             echo "::error::APPLE_CERTIFICATE secret is empty"
             exit 1
           fi
           printf '%s' "$CLEANED" | openssl base64 -d -A > "$CERTIFICATE_PATH"
-
-          echo "Decoded .p12 size: $(stat -f%z "$CERTIFICATE_PATH" 2>/dev/null || stat -c%s "$CERTIFICATE_PATH") bytes"
-          file "$CERTIFICATE_PATH"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
