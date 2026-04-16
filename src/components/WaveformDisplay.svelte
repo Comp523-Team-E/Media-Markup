@@ -46,7 +46,7 @@
   $effect(() => {
     const pos = appState.positionMs; // reactive dependency
     if (!waveformWrapEl || appState.waveformDragging || appState.zoomLevel <= 1) return;
-    if (!appState.isPlaying || !appState.followPlayhead) return;
+    if (!appState.followPlayhead) return;
     const pct = appState.durationMs > 0 ? pos / appState.durationMs : 0;
     const total = waveformWrapEl.scrollWidth;
     const visible = waveformWrapEl.clientWidth;

@@ -140,7 +140,7 @@ export async function seekTo(ms: number) {
     }
     // Scroll waveform to keep the new position visible when zoomed
     const wrap = appState.waveformWrapEl;
-    if (wrap && appState.zoomLevel > 1 && appState.durationMs > 0) {
+    if (wrap && appState.zoomLevel > 1 && appState.durationMs > 0 && appState.followPlayhead) {
       const pct     = ms / appState.durationMs;
       const total   = wrap.scrollWidth;
       const visible = wrap.clientWidth;

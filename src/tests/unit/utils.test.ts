@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMs, kindLabel, SPEEDS, ZOOM_LEVELS, parseTimeMs } from '$lib/utils';
+import { formatMs, formatMsDisplay, kindLabel, SPEEDS, ZOOM_LEVELS, parseTimeMs } from '$lib/utils';
 
 describe('formatMs', () => {
   it('formats zero as 00:00:00.000', () => {
@@ -175,5 +175,65 @@ describe('SPEEDS', () => {
 
   it('is sorted in ascending order', () => {
     expect([...SPEEDS]).toEqual([...SPEEDS].sort((a, b) => a - b));
+  });
+});
+
+describe('formatMsDisplay', () => {
+  describe('sub-minute reference — shows S.mmm with no leading zero', () => {
+    const ref = 59_999; // 59.999s
+
+    it('formats the duration itself', () => {
+      expect(formatMsDisplay(39_876, ref)).toBe('39.876');
+    });
+
+    it('formats a position shorter than the duration', () => {
+      expect(formatMsDisplay(5_000, ref)).toBe('5.000');
+    });
+
+    it('formats zero position', () => {
+      expect(formatMsDisplay(0, ref)).toBe('0.000');
+    });
+  });
+
+  describe('sub-hour reference — shows M:SS.mmm with no leading zero on minutes', () => {
+    const ref = 3_599_999; // 59:59.999
+
+    it('formats the duration itself', () => {
+      expect(formatMsDisplay(90_500, ref)).toBe('1:30.500');
+    });
+
+    it('formats zero minutes (no leading zero)', () => {
+      expect(formatMsDisplay(45_000, ref)).toBe('0:45.000');
+    });
+
+    it('formats zero position', () => {
+      expect(formatMsDisplay(0, ref)).toBe('0:00.000');
+    });
+  });
+
+  describe('hour+ reference — shows H:MM:SS.mmm with no leading zero on hours', () => {
+    const ref = 3_661_001; // 1:01:01.001
+
+    it('formats the duration itself', () => {
+      expect(formatMsDisplay(3_661_001, ref)).toBe('1:01:01.001');
+    });
+
+    it('formats a position under 1 hour', () => {
+      expect(formatMsDisplay(90_000, ref)).toBe('0:01:30.000');
+    });
+
+    it('formats zero position', () => {
+      expect(formatMsDisplay(0, ref)).toBe('0:00:00.000');
+    });
+  });
+
+  it('position and duration share the same format for a sub-minute file', () => {
+    const dur = 39_876;
+    const pos = 12_345;
+    const dStr = formatMsDisplay(dur, dur);
+    const pStr = formatMsDisplay(pos, dur);
+    expect(dStr).toBe('39.876');
+    expect(pStr).toBe('12.345');
+    expect(pStr.length).toBeLessThanOrEqual(dStr.length);
   });
 });
