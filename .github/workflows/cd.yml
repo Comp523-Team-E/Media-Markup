@@ -113,7 +113,7 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
 
-          echo -n "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+          printf '%s' "$APPLE_CERTIFICATE" | tr -d '\n\r ' | base64 --decode > "$CERTIFICATE_PATH"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -131,7 +131,7 @@ jobs:
         run: |
           KEY_DIR="$RUNNER_TEMP/apple-keys"
           mkdir -p "$KEY_DIR"
-          echo -n "$APPLE_API_KEY_CONTENT" | base64 --decode > "$KEY_DIR/AuthKey.p8"
+          printf '%s' "$APPLE_API_KEY_CONTENT" | tr -d '\n\r ' | base64 --decode > "$KEY_DIR/AuthKey.p8"
           echo "APPLE_API_KEY_PATH=$KEY_DIR/AuthKey.p8" >> "$GITHUB_ENV"
 
       # ── Build prerequisites ──────────────────────────────────────────
@@ -167,7 +167,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
-
       - name: Build and upload to release (unsigned)
         if: steps.signing.outputs.enabled != 'true'
         uses: tauri-apps/tauri-action@v0
