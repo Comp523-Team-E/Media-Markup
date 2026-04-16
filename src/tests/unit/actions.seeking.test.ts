@@ -207,6 +207,7 @@ describe('seekTo — waveform scroll sync', () => {
     appState.waveformWrapEl = wrap;
     appState.zoomLevel = 2;
     appState.durationMs = 10_000;
+    appState.followPlayhead = true
     await seekTo(5000);
     expect(wrap.scrollLeft).toBe(400);
   });
