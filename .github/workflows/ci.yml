@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -58,6 +61,8 @@ jobs:
         with:
           workspaces: src-tauri
           key: ${{ matrix.target }}
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install system dependencies (Linux)
         if: matrix.os == 'linux'

@@ -60,7 +60,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: ${{ matrix.target }}
+          key: ${{ matrix.target }}-release
+          cache-on-failure: true
 
       - name: Install system dependencies (Linux)
         if: matrix.os == 'linux'
@@ -113,7 +114,12 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
 
-          echo -n "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+          CLEANED=$(printf '%s' "$APPLE_CERTIFICATE" | tr -d '\n\r\t ')
+          if [ -z "$CLEANED" ]; then
+            echo "::error::APPLE_CERTIFICATE secret is empty"
+            exit 1
+          fi
+          printf '%s' "$CLEANED" | openssl base64 -d -A > "$CERTIFICATE_PATH"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -131,7 +137,12 @@ jobs:
         run: |
           KEY_DIR="$RUNNER_TEMP/apple-keys"
           mkdir -p "$KEY_DIR"
-          echo -n "$APPLE_API_KEY_CONTENT" | base64 --decode > "$KEY_DIR/AuthKey.p8"
+          CLEANED=$(printf '%s' "$APPLE_API_KEY_CONTENT" | tr -d '\n\r\t ')
+          if [ -z "$CLEANED" ]; then
+            echo "::error::APPLE_API_KEY_CONTENT secret is empty"
+            exit 1
+          fi
+          printf '%s' "$CLEANED" | openssl base64 -d -A > "$KEY_DIR/AuthKey.p8"
           echo "APPLE_API_KEY_PATH=$KEY_DIR/AuthKey.p8" >> "$GITHUB_ENV"
 
       # ── Build prerequisites ──────────────────────────────────────────
@@ -167,7 +178,6 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
-
       - name: Build and upload to release (unsigned)
         if: steps.signing.outputs.enabled != 'true'
         uses: tauri-apps/tauri-action@v0
