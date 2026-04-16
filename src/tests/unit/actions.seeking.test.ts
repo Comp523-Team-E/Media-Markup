@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { appState } from '$lib/state.svelte';
-import { seekTo, seekToPrevMarker, seekToNextMarker, stepBack, stepFwd } from '$lib/actions';
+import { seekTo, seekToPrevMarker, seekToNextMarker, stepBack, stepFwd, handleFollowPlayhead } from '$lib/actions';
 import { resetAppState } from '../helpers/reset-state';
 import type { Marker } from '$lib/types';
 
@@ -207,6 +207,7 @@ describe('seekTo — waveform scroll sync', () => {
     appState.waveformWrapEl = wrap;
     appState.zoomLevel = 2;
     appState.durationMs = 10_000;
+    appState.followPlayhead = true
     await seekTo(5000);
     expect(wrap.scrollLeft).toBe(400);
   });
@@ -239,5 +240,44 @@ describe('seekTo — waveform scroll sync', () => {
     appState.durationMs = 0;
     await seekTo(0);
     expect(wrap.scrollLeft).toBe(0);
+  });
+});
+
+describe('seekTo — followPlayhead', () => {
+  it('does not scroll when followPlayhead is false', async () => {
+    mockIPC(() => undefined);
+    const wrap = makeWrapEl(1000, 200);
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    appState.followPlayhead = false;
+    await seekTo(5000);
+    expect(wrap.scrollLeft).toBe(0);
+  });
+
+  it('scrolls when followPlayhead is true and audio is paused', async () => {
+    mockIPC(() => undefined);
+    const wrap = makeWrapEl(1000, 200);
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    appState.isPlaying = false;
+    appState.followPlayhead = true;
+    await seekTo(5000);
+    expect(wrap.scrollLeft).toBe(400);
+  });
+});
+
+describe('handleFollowPlayhead', () => {
+  it('sets followPlayhead to false', () => {
+    appState.followPlayhead = true;
+    handleFollowPlayhead(false);
+    expect(appState.followPlayhead).toBe(false);
+  });
+
+  it('sets followPlayhead to true', () => {
+    appState.followPlayhead = false;
+    handleFollowPlayhead(true);
+    expect(appState.followPlayhead).toBe(true);
   });
 });

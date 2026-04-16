@@ -6,7 +6,7 @@
     openFile, importCsv, togglePlay, setSpeed, handleLoop,
     addMarkerNoKind, addMarkerAt, deleteMarker,
     renameSegment, exportAudioSegments,
-    stepBack, stepFwd,
+    stepBack, stepFwd, handleFollowPlayhead
   } from '$lib/actions';
 
   import WelcomeScreen from '../components/WelcomeScreen.svelte';
@@ -47,6 +47,7 @@
       onStepFwd={stepFwd}
       onSetSpeed={setSpeed}
       onToggleLoop={handleLoop}
+      onToggleFollow={handleFollowPlayhead}
     />
     <div class="panels">
       <MarkerPanel

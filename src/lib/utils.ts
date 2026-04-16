@@ -13,6 +13,27 @@ export function formatMs(ms: number): string {
   );
 }
 
+// Formats ms using the same component structure as refMs, with no leading
+// zeros on the most-significant unit. Used for the playback time display so
+// the position and duration strings are always the same width.
+export function formatMsDisplay(ms: number, refMs: number): string {
+  const refH = Math.floor(refMs / 3_600_000);
+  const h    = Math.floor(ms / 3_600_000);
+  const m    = Math.floor((ms % 3_600_000) / 60_000);
+  const s    = Math.floor((ms % 60_000) / 1000);
+  const mil  = Math.floor(ms % 1000);
+  const ss   = String(s).padStart(2, '0');
+  const mmm  = String(mil).padStart(3, '0');
+  if (refH >= 1) {
+    return `${h}:${String(m).padStart(2, '0')}:${ss}.${mmm}`;
+  }
+  const refM = Math.floor(refMs / 60_000);
+  if (refM >= 1) {
+    return `${m}:${ss}.${mmm}`;
+  }
+  return `${s}.${mmm}`;
+}
+
 export function kindLabel(kind: MarkerKind): string {
   if (kind === 'start') return 'Start';
   if (kind === 'end')   return 'End';

@@ -1,13 +1,14 @@
 <script lang="ts">
   import { appState } from '$lib/state.svelte';
-  import { formatMs, SPEEDS } from '$lib/utils';
+  import { formatMsDisplay, SPEEDS } from '$lib/utils';
 
-  let { onStepBack, onTogglePlay, onStepFwd, onSetSpeed, onToggleLoop }: {
+  let { onStepBack, onTogglePlay, onStepFwd, onSetSpeed, onToggleLoop, onToggleFollow }: {
     onStepBack: () => Promise<void>;
     onTogglePlay: () => Promise<void>;
     onStepFwd: () => Promise<void>;
     onSetSpeed: (s: number) => Promise<void>;
     onToggleLoop: (enabled: boolean) => Promise<void>;
+    onToggleFollow: (enabled: boolean) => void;
   } = $props();
 </script>
 
@@ -40,17 +41,29 @@
       {/each}
     </div>
 
-    <label class="loop-label">
-      <input
-        type="checkbox"
-        checked={appState.looping}
-        onchange={(e) => onToggleLoop((e.currentTarget as HTMLInputElement).checked)}
-      />
-      Loop
-    </label>
+    <div class="toggle-group">
+      <button
+        class="toggle-btn"
+        class:toggle-active={appState.looping}
+        onclick={() => onToggleLoop(!appState.looping)}
+        title="Loop playback"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        Loop
+      </button>
+      <button
+        class="toggle-btn"
+        class:toggle-active={appState.followPlayhead}
+        onclick={() => onToggleFollow(!appState.followPlayhead)}
+        title="Follow playhead while zoomed"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+        Follow
+      </button>
+    </div>
 
     <span class="time-display">
-      {formatMs(appState.positionMs)} / {formatMs(appState.durationMs)}
+      {formatMsDisplay(appState.positionMs, appState.durationMs)} / {formatMsDisplay(appState.durationMs, appState.durationMs)}
     </span>
   </div>
 </div>
@@ -143,17 +156,39 @@
     color: #fff !important;
   }
 
-  .loop-label {
+  .toggle-group {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    color: #8b949e;
-    cursor: pointer;
-    user-select: none;
+    gap: 4px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 3px;
   }
 
-  .loop-label input { cursor: pointer; accent-color: #2563eb; }
+  .toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    color: #8b949e;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .toggle-btn:hover { color: #c9d1d9; background: #1e2a3a; }
+
+  .toggle-active {
+    background: #1d3a6e;
+    color: #60a5fa;
+  }
+
+  .toggle-active:hover { background: #1e3f7a; color: #93c5fd; }
 
   .time-display {
     font-size: 13px;

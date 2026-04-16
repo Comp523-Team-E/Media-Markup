@@ -13,6 +13,7 @@ class AppState {
   stepMs          = $state(5000);
   speed           = $state(1.0);
   looping         = $state(false);
+  followPlayhead  = $state(false);
   renameInputs    = $state<Record<string, string>>({});
   selectedMarkerId  = $state<string | null>(null);
   validationError   = $state<string | null>(null);

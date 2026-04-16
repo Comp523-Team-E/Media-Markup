@@ -11,6 +11,7 @@ export function resetAppState() {
   appState.stepMs           = 5000;
   appState.speed            = 1.0;
   appState.looping          = false;
+  appState.followPlayhead   = false;
   appState.renameInputs     = {};
   appState.selectedMarkerId  = null;
   appState.validationError   = null;
