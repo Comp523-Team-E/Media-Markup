@@ -14,7 +14,11 @@ After checking that the prerequisites are properly installed, cd into the projec
 
 ```bash
     npm install
-    npm run tauri dev
+    # Build and run for development
+    npm run tauri dev  
+    # OR
+    # Build and run for production
+    npm run tuari build 
 ```
 
 `npm run tauri dev` automatically ensures the required ffmpeg sidecar exists before Tauri starts. You can still run `npm run download-ffmpeg` manually if you need to refresh it.
