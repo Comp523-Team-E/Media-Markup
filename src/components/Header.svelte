@@ -27,7 +27,7 @@
 
 <header class="header">
   <div class="header-left">
-    <h1 class="app-title">Media Segment Marker</h1>
+    <h1 class="app-title">Audio Ninja</h1>
     <p class="app-sub">
       <span class="file-name" title={appState.metadata?.fileName}>{appState.metadata?.fileName}</span>
       <span class="file-format">{fileFormat}</span>

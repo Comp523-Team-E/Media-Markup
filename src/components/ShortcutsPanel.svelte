@@ -95,6 +95,7 @@
   .shortcuts-collapsed .panel-header {
     justify-content: center;
     padding: 10px 6px 8px;
+    gap: 8px;
   }
 
   .panel-title {
@@ -112,6 +113,7 @@
     justify-content: center;
     width: 24px;
     height: 24px;
+    flex: 0 0 24px;
     background: #1e2a3a;
     border: 1px solid #30363d;
     border-radius: 6px;

@@ -111,7 +111,7 @@
 	  }
 
 	  .panels.shortcuts-collapsed {
-	    grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr) 42px;
+	    grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr) 58px;
 	  }
 
 	  @media (max-width: 900px) {
@@ -120,7 +120,7 @@
 	    }
 
 	    .panels.shortcuts-collapsed {
-	      grid-template-columns: minmax(160px, 1fr) minmax(240px, 2fr) 40px;
+	      grid-template-columns: minmax(160px, 1fr) minmax(240px, 2fr) 58px;
 	    }
 	  }
 
