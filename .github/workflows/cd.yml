@@ -160,9 +160,9 @@ jobs:
         shell: bash
         run: bash scripts/download-ffmpeg.sh --target ${{ matrix.target }}
 
-      - name: Generate platform icons
-        shell: bash
-        run: bash scripts/ensure-icons.sh
+      # - name: Generate platform icons
+      #   shell: bash
+      #   run: bash scripts/ensure-icons.sh
 
       # ── Tauri build & release ────────────────────────────────────────
 
