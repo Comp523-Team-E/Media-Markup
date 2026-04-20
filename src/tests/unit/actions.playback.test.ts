@@ -167,6 +167,24 @@ describe('exportAudioSegments', () => {
     expect(handler).toHaveBeenCalledWith('export_audio_segments', { exportCsv: true, exportAudio: true });
   });
 
+  it('sets successMessage when both exportCsv and exportAudio are true', async () => {
+    mockIPC(() => undefined);
+    await exportAudioSegments(true, true);
+    expect(appState.successMessage).toBe('CSV and audio segments exported successfully.');
+  });
+
+  it('sets successMessage when only exportCsv is true', async () => {
+    mockIPC(() => undefined);
+    await exportAudioSegments(true, false);
+    expect(appState.successMessage).toBe('CSV exported successfully.');
+  });
+
+  it('sets successMessage when only exportAudio is true', async () => {
+    mockIPC(() => undefined);
+    await exportAudioSegments(false, true);
+    expect(appState.successMessage).toBe('Audio segments exported successfully.');
+  });
+
   it('sets appState.error when invoke throws', async () => {
     mockIPC(() => { throw new Error('export failed'); });
     await exportAudioSegments(true, true);

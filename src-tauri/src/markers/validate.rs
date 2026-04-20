@@ -3,86 +3,83 @@ use super::model::{Marker, MarkerKind, Segment};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Pair sorted markers into validated segments.
+/// Pair sorted markers into validated segments using a stack (valid-parentheses model).
 ///
 /// Rules:
-/// - Every `Start` must be followed immediately by an `End`
-/// - `End` cannot appear without a preceding `Start`
-/// - `StartEnd` emits a zero-span segment on its own
-/// - Two consecutive `Start` markers (or a `StartEnd` while waiting) → error
-/// - An unmatched `Start` at end-of-list → error
+/// - `Start` pushes onto the open-segment stack.
+/// - `End` pops the most-recently-opened start and closes a segment.
+///   An `End` with nothing on the stack is an error.
+/// - `StartEnd` closes the most-recently-opened start (if any) and pushes
+///   itself as a new open start.  A standalone `StartEnd` (empty stack) emits
+///   a zero-span segment without opening a new pending start.
+/// - Any starts remaining on the stack after all markers are processed are errors.
+///
+/// Segments may overlap when multiple starts are open simultaneously.
 pub fn to_segments(
     markers: &[Marker],
     titles: &HashMap<Uuid, String>,
 ) -> Result<Vec<Segment>> {
-    #[derive(Debug)]
-    enum State<'a> {
-        Idle,
-        WaitingForEnd(&'a Marker),
-    }
-
-    let mut state = State::Idle;
+    let mut stack: Vec<&Marker> = Vec::new();
     let mut segments: Vec<Segment> = Vec::new();
 
     for m in markers {
-        match (&state, m.kind) {
-            (State::Idle, MarkerKind::Start) => {
-                state = State::WaitingForEnd(m);
+        match m.kind {
+            MarkerKind::Start => {
+                stack.push(m);
             }
-            (State::Idle, MarkerKind::StartEnd) => {
-                let title = titles
-                    .get(&m.id)
-                    .cloned()
-                    .unwrap_or_else(|| format!("Segment {}", segments.len()));
-                segments.push(Segment {
-                    start_ms: m.position,
-                    end_ms: m.position,
-                    title,
-                });
+            MarkerKind::End => {
+                match stack.pop() {
+                    None => {
+                        return Err(AppError::ValidationError(
+                            "End marker found with no preceding Start marker".into(),
+                        ));
+                    }
+                    Some(start) => {
+                        let title = titles
+                            .get(&start.id)
+                            .cloned()
+                            .unwrap_or_else(|| format!("Segment {}", segments.len()));
+                        segments.push(Segment {
+                            start_ms: start.position,
+                            end_ms: m.position,
+                            title,
+                        });
+                    }
+                }
             }
-            (State::Idle, MarkerKind::End) => {
-                return Err(AppError::ValidationError(
-                    "End marker found with no preceding Start marker".into(),
-                ));
-            }
-            (State::WaitingForEnd(start), MarkerKind::End) => {
-                let title = titles
-                    .get(&start.id)
-                    .cloned()
-                    .unwrap_or_else(|| format!("Segment {}", segments.len()));
-                segments.push(Segment {
-                    start_ms: start.position,
-                    end_ms: m.position,
-                    title,
-                });
-                state = State::Idle;
-            }
-            (State::WaitingForEnd(start), MarkerKind::StartEnd) => {
-                // StartEnd closes the pending Start segment and simultaneously
-                // opens a new one, so the next End can close it.
-                let title = titles
-                    .get(&start.id)
-                    .cloned()
-                    .unwrap_or_else(|| format!("Segment {}", segments.len()));
-                segments.push(Segment {
-                    start_ms: start.position,
-                    end_ms: m.position,
-                    title,
-                });
-                state = State::WaitingForEnd(m);
-            }
-            (State::WaitingForEnd(_), MarkerKind::Start) => {
-                return Err(AppError::ValidationError(
-                    "Two consecutive Start markers found without an End marker between them".into(),
-                ));
+            MarkerKind::StartEnd => {
+                if let Some(start) = stack.pop() {
+                    // Closes the most-recent open segment and opens a new one.
+                    let title = titles
+                        .get(&start.id)
+                        .cloned()
+                        .unwrap_or_else(|| format!("Segment {}", segments.len()));
+                    segments.push(Segment {
+                        start_ms: start.position,
+                        end_ms: m.position,
+                        title,
+                    });
+                    stack.push(m);
+                } else {
+                    // Standalone StartEnd with nothing open: zero-span segment.
+                    let title = titles
+                        .get(&m.id)
+                        .cloned()
+                        .unwrap_or_else(|| format!("Segment {}", segments.len()));
+                    segments.push(Segment {
+                        start_ms: m.position,
+                        end_ms: m.position,
+                        title,
+                    });
+                }
             }
         }
     }
 
-    if let State::WaitingForEnd(start) = state {
+    if let Some(unmatched) = stack.first() {
         return Err(AppError::ValidationError(format!(
             "Unmatched Start marker at position {} ms has no corresponding End marker",
-            start.position
+            unmatched.position
         )));
     }
 
@@ -154,11 +151,34 @@ mod tests {
     }
 
     #[test]
-    fn two_consecutive_starts_is_error() {
+    fn two_starts_with_no_matching_ends_is_error() {
+        // Both starts are unmatched — the outermost (earliest) is reported.
         let s1 = marker(1000, MarkerKind::Start);
         let s2 = marker(2000, MarkerKind::Start);
         let result = to_segments(&[s1, s2], &HashMap::new());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn overlapping_segments_are_valid() {
+        // start → start → end → end produces two overlapping segments.
+        let s1 = marker(0, MarkerKind::Start);
+        let s2 = marker(1000, MarkerKind::Start);
+        let e1 = marker(4000, MarkerKind::End);
+        let e2 = marker(5000, MarkerKind::End);
+        let mut titles = HashMap::new();
+        titled(&s1, &mut titles, "Outer");
+        titled(&s2, &mut titles, "Inner");
+        let segments = to_segments(&[s1, s2, e1, e2], &titles).unwrap();
+        assert_eq!(segments.len(), 2);
+        // Inner segment: s2 closed by the first end
+        assert_eq!(segments[0].start_ms, 1000);
+        assert_eq!(segments[0].end_ms, 4000);
+        assert_eq!(segments[0].title, "Inner");
+        // Outer segment: s1 closed by the second end
+        assert_eq!(segments[1].start_ms, 0);
+        assert_eq!(segments[1].end_ms, 5000);
+        assert_eq!(segments[1].title, "Outer");
     }
 
     #[test]
@@ -169,7 +189,9 @@ mod tests {
     }
 
     #[test]
-    fn start_then_startend_is_error() {
+    fn startend_without_closing_end_is_error() {
+        // start → startEnd creates a segment then pushes startEnd as new open start.
+        // Without a following end, the startEnd is unmatched.
         let s = marker(1000, MarkerKind::Start);
         let se = marker(2000, MarkerKind::StartEnd);
         let result = to_segments(&[s, se], &HashMap::new());

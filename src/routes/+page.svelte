@@ -4,7 +4,7 @@
   import {
     stopPolling, stopRaf, handleKeydown,
     openFile, importCsv, togglePlay, setSpeed, handleLoop,
-    addMarkerNoKind, addMarkerAt, deleteMarker,
+    addMarkerNoKind, addMarkerAt, deleteMarker, splitStartEndMarker,
     renameSegment, exportAudioSegments,
     stepBack, stepFwd, handleFollowPlayhead
   } from '$lib/actions';
@@ -68,6 +68,7 @@
 	        onAddMarkerNoKind={addMarkerNoKind}
 	        onDeleteMarker={deleteMarker}
 	        onAddMarkerAt={addMarkerAt}
+	        onSplitStartEndMarker={splitStartEndMarker}
 	      />
 	      <SegmentPanel onRenameSegment={renameSegment} />
 	      <ShortcutsPanel

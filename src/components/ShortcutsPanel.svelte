@@ -53,6 +53,7 @@
       <div class="shortcut-subheading">Manage Markers</div>
       <div class="shortcut-row"><kbd>D</kbd><span>Previous Marker</span></div>
       <div class="shortcut-row"><kbd>F</kbd><span>Next Marker</span></div>
+      <div class="shortcut-row"><kbd>X</kbd><span>Split Start+End Marker</span></div>
       <div class="shortcut-row"><kbd>Del</kbd><span>Delete Selected Marker</span></div>
 
       <div class="shortcut-subheading">Edit Marker</div>

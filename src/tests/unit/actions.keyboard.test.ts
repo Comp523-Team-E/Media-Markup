@@ -168,6 +168,67 @@ describe('handleKeydown — markers', () => {
     await flush();
     expect(handler).not.toHaveBeenCalledWith('delete_marker', expect.anything());
   });
+
+  it('x splits a selected startEnd marker', async () => {
+    appState.markers = [{ id: 'b1', position: 3000, kind: 'startEnd' }];
+    appState.renameInputs = { b1: '' };
+    appState.selectedMarkerId = 'b1';
+    let callCount = 0;
+    const handler = vi.fn((cmd: string) => {
+      if (cmd === 'delete_marker') return undefined;
+      if (cmd === 'add_marker') {
+        callCount++;
+        return { id: `new${callCount}`, position: 3000, kind: callCount === 1 ? 'end' : 'start' };
+      }
+      if (cmd === 'validate_markers') return [];
+      return undefined;
+    });
+    mockIPC(handler);
+    handleKeydown(keyEvent('x'));
+    for (let i = 0; i < 40; i++) await Promise.resolve();
+    expect(handler).toHaveBeenCalledWith('delete_marker', { id: 'b1' });
+    expect(handler).toHaveBeenCalledWith('add_marker', expect.objectContaining({ kind: 'end' }));
+    expect(handler).toHaveBeenCalledWith('add_marker', expect.objectContaining({ kind: 'start' }));
+  });
+
+  it('X (uppercase) also splits a selected startEnd marker', async () => {
+    appState.markers = [{ id: 'b1', position: 3000, kind: 'startEnd' }];
+    appState.renameInputs = { b1: '' };
+    appState.selectedMarkerId = 'b1';
+    let callCount = 0;
+    const handler = vi.fn((cmd: string) => {
+      if (cmd === 'delete_marker') return undefined;
+      if (cmd === 'add_marker') {
+        callCount++;
+        return { id: `new${callCount}`, position: 3000, kind: callCount === 1 ? 'end' : 'start' };
+      }
+      if (cmd === 'validate_markers') return [];
+      return undefined;
+    });
+    mockIPC(handler);
+    handleKeydown(keyEvent('X'));
+    for (let i = 0; i < 40; i++) await Promise.resolve();
+    expect(handler).toHaveBeenCalledWith('delete_marker', { id: 'b1' });
+  });
+
+  it('x does nothing when no marker is selected', async () => {
+    appState.selectedMarkerId = null;
+    const handler = vi.fn(() => undefined);
+    mockIPC(handler);
+    handleKeydown(keyEvent('x'));
+    await flush();
+    expect(handler).not.toHaveBeenCalledWith('delete_marker', expect.anything());
+  });
+
+  it('x does nothing when the selected marker is not startEnd', async () => {
+    appState.markers = [{ id: 's1', position: 1000, kind: 'start' }];
+    appState.selectedMarkerId = 's1';
+    const handler = vi.fn(() => undefined);
+    mockIPC(handler);
+    handleKeydown(keyEvent('x'));
+    await flush();
+    expect(handler).not.toHaveBeenCalledWith('delete_marker', expect.anything());
+  });
 });
 
 describe('handleKeydown — seeking', () => {

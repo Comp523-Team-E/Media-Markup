@@ -6,10 +6,11 @@
   import { validationProblemMarkerIds } from '$lib/validation';
   import type { MarkerKind } from '$lib/types';
 
-  let { onAddMarkerNoKind, onDeleteMarker, onAddMarkerAt }: {
+  let { onAddMarkerNoKind, onDeleteMarker, onAddMarkerAt, onSplitStartEndMarker }: {
     onAddMarkerNoKind: () => Promise<void>;
     onDeleteMarker: (id: string) => Promise<void>;
     onAddMarkerAt: (kind: MarkerKind, pos: number) => Promise<void>;
+    onSplitStartEndMarker: (id: string) => Promise<void>;
   } = $props();
 
   // Local string state for the edit input — avoids fighting the user while typing
@@ -162,6 +163,23 @@
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
           </button>
+          {#if m.kind === 'startEnd'}
+            <button
+              class="split-btn"
+              onclick={(e) => { e.stopPropagation(); onSplitStartEndMarker(m.id); }}
+              title="Split into Start + End markers (X)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <circle cx="6" cy="6" r="3"/>
+                <circle cx="6" cy="18" r="3"/>
+                <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+                <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+                <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+              </svg>
+            </button>
+          {:else}
+            <span class="split-placeholder"></span>
+          {/if}
           <button
             class="delete-btn"
             onclick={(e) => { e.stopPropagation(); onDeleteMarker(m.id); }}
@@ -247,7 +265,7 @@
 
   .marker-row {
     display: grid;
-    grid-template-columns: 8px minmax(86px, 1fr) minmax(64px, 88px) 26px 26px;
+    grid-template-columns: 8px minmax(86px, 1fr) minmax(64px, 88px) 26px 26px 26px;
     align-items: center;
     column-gap: 8px;
     padding: 7px 14px;
@@ -359,9 +377,32 @@
   .edit-btn:hover { color: #f97316; border-color: #f97316; background: #1e1a0e; }
   .edit-btn-active { color: #f97316; border-color: #f97316; background: #1e1a0e; }
 
+  .split-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #4d5b6b;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+
+  .split-btn:hover { color: #facc15; border-color: #facc15; background: #1e1c0a; }
+
+  .split-placeholder {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+  }
+
   @media (max-width: 650px) {
     .marker-row {
-      grid-template-columns: 8px minmax(82px, 1fr) minmax(48px, 56px) 26px 26px;
+      grid-template-columns: 8px minmax(82px, 1fr) minmax(48px, 56px) 26px 26px 26px;
       column-gap: 6px;
     }
 

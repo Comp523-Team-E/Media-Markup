@@ -3,7 +3,7 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { appState } from '$lib/state.svelte';
 import {
   addMarkerAt, addMarkerNoKind, deleteMarker,
-  renameSegment, computePartialSegments, revalidate,
+  renameSegment, computePartialSegments, revalidate, splitStartEndMarker,
 } from '$lib/actions';
 import { resetAppState } from '../helpers/reset-state';
 import type { Marker } from '$lib/types';
@@ -286,6 +286,123 @@ describe('computePartialSegments', () => {
     expect(segs).toHaveLength(1);
     expect(segs[0].startMs).toBe(1000);
     expect(segs[0].endMs).toBe(5000);
+  });
+
+  it('produces two overlapping segments from start-start-end-end', () => {
+    appState.markers = [
+      marker('s1', 0, 'start'),
+      marker('s2', 1000, 'start'),
+      marker('e1', 4000, 'end'),
+      marker('e2', 5000, 'end'),
+    ];
+    appState.renameInputs = { s1: 'Outer', s2: 'Inner' };
+    const segs = computePartialSegments();
+    expect(segs).toHaveLength(2);
+    // LIFO: s2 closed by e1, s1 closed by e2
+    expect(segs.find(s => s.startMs === 1000)).toEqual({ startMs: 1000, endMs: 4000, title: 'Inner' });
+    expect(segs.find(s => s.startMs === 0)).toEqual({ startMs: 0, endMs: 5000, title: 'Outer' });
+  });
+
+  it('ignores an unmatched outer start when inner segment is complete', () => {
+    appState.markers = [
+      marker('s1', 0, 'start'),
+      marker('s2', 1000, 'start'),
+      marker('e1', 4000, 'end'),
+    ];
+    appState.renameInputs = { s1: 'Outer', s2: 'Inner' };
+    const segs = computePartialSegments();
+    // Only s2→e1 closes; s1 has no matching end so it is left on the stack
+    expect(segs).toHaveLength(1);
+    expect(segs[0]).toEqual({ startMs: 1000, endMs: 4000, title: 'Inner' });
+  });
+});
+
+describe('splitStartEndMarker', () => {
+  it('is a no-op when the marker does not exist', async () => {
+    mockIPC(() => undefined);
+    await splitStartEndMarker('nonexistent');
+    expect(appState.markers).toHaveLength(0);
+  });
+
+  it('is a no-op when the marker is not startEnd kind', async () => {
+    appState.markers = [marker('s1', 1000, 'start')];
+    mockIPC(() => undefined);
+    await splitStartEndMarker('s1');
+    expect(appState.markers).toHaveLength(1);
+    expect(appState.markers[0].kind).toBe('start');
+  });
+
+  it('removes the startEnd marker', async () => {
+    appState.markers = [marker('b1', 3000, 'startEnd')];
+    appState.renameInputs = { b1: '' };
+    let callCount = 0;
+    mockIPC((cmd: string) => {
+      if (cmd === 'delete_marker') return undefined;
+      if (cmd === 'add_marker') {
+        callCount++;
+        return marker(`new${callCount}`, 3000, callCount === 1 ? 'end' : 'start');
+      }
+      if (cmd === 'validate_markers') return [];
+      return undefined;
+    });
+    await splitStartEndMarker('b1');
+    expect(appState.markers.find(m => m.id === 'b1')).toBeUndefined();
+  });
+
+  it('creates an end and a start marker at the same position', async () => {
+    appState.markers = [marker('b1', 3000, 'startEnd')];
+    appState.renameInputs = { b1: '' };
+    let callCount = 0;
+    mockIPC((cmd: string) => {
+      if (cmd === 'delete_marker') return undefined;
+      if (cmd === 'add_marker') {
+        callCount++;
+        return marker(`new${callCount}`, 3000, callCount === 1 ? 'end' : 'start');
+      }
+      if (cmd === 'validate_markers') return [];
+      return undefined;
+    });
+    await splitStartEndMarker('b1');
+    const kinds = appState.markers.map(m => m.kind).sort();
+    expect(kinds).toEqual(['end', 'start']);
+    expect(appState.markers.every(m => m.position === 3000)).toBe(true);
+  });
+
+  it('transfers the title from the startEnd marker to the new start marker', async () => {
+    appState.markers = [marker('b1', 3000, 'startEnd')];
+    appState.renameInputs = { b1: 'Chorus' };
+    let callCount = 0;
+    mockIPC((cmd: string) => {
+      if (cmd === 'delete_marker') return undefined;
+      if (cmd === 'add_marker') {
+        callCount++;
+        return marker(`new${callCount}`, 3000, callCount === 1 ? 'end' : 'start');
+      }
+      if (cmd === 'validate_markers') return [];
+      return undefined;
+    });
+    await splitStartEndMarker('b1');
+    const startMarker = appState.markers.find(m => m.kind === 'start');
+    expect(startMarker).toBeDefined();
+    expect(appState.renameInputs[startMarker!.id]).toBe('Chorus');
+  });
+
+  it('calls revalidate after splitting', async () => {
+    appState.markers = [marker('b1', 3000, 'startEnd')];
+    appState.renameInputs = { b1: '' };
+    let callCount = 0;
+    const handler = vi.fn((cmd: string) => {
+      if (cmd === 'delete_marker') return undefined;
+      if (cmd === 'add_marker') {
+        callCount++;
+        return marker(`new${callCount}`, 3000, callCount === 1 ? 'end' : 'start');
+      }
+      if (cmd === 'validate_markers') return [];
+      return undefined;
+    });
+    mockIPC(handler);
+    await splitStartEndMarker('b1');
+    expect(handler).toHaveBeenCalledWith('validate_markers', expect.anything());
   });
 });
 

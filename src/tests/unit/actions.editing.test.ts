@@ -335,4 +335,15 @@ describe('computePreviewSegments', () => {
     appState.editingPositionMs = 2000;
     expect(computePreviewSegments()).toEqual([]);
   });
+
+  it('closes the pending segment at an edited startEnd marker then opens a new one', () => {
+    appState.markers = [marker('s1', 0, 'start'), marker('b1', 3000, 'startEnd'), marker('e1', 6000, 'end')];
+    appState.renameInputs = { s1: 'Intro', b1: 'Chorus' };
+    appState.editingMarkerId = 'b1';
+    appState.editingPositionMs = 4000;
+    const result = computePreviewSegments();
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ startMs: 0, endMs: 4000, title: 'Intro' });
+    expect(result[1]).toEqual({ startMs: 4000, endMs: 6000, title: 'Chorus' });
+  });
 });

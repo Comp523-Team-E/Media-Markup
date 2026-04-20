@@ -7,26 +7,18 @@ export function validationProblemMarkerIds(markers: Marker[], error: string | nu
   const message = error.toLowerCase();
 
   if (message.includes('no preceding start')) {
-    let waitingForEnd = false;
-    for (const marker of sorted) {
-      if (marker.kind === 'start') waitingForEnd = true;
-      else if (marker.kind === 'end') {
-        if (!waitingForEnd) return new Set([marker.id]);
-        waitingForEnd = false;
-      }
-    }
-  }
-
-  if (message.includes('two consecutive start')) {
-    let pendingStart: Marker | null = null;
+    // Simulate the stack to find the first end that hits an empty stack.
+    // startEnd with nothing open increments the count (opens a new pending start);
+    // startEnd with something open is net-zero (closes one, opens one).
+    let count = 0;
     for (const marker of sorted) {
       if (marker.kind === 'start') {
-        if (pendingStart) return new Set([pendingStart.id, marker.id]);
-        pendingStart = marker;
-      } else if (marker.kind === 'end') {
-        pendingStart = null;
+        count++;
       } else if (marker.kind === 'startEnd') {
-        pendingStart = pendingStart ? marker : null;
+        if (count === 0) count++;
+      } else if (marker.kind === 'end') {
+        if (count === 0) return new Set([marker.id]);
+        count--;
       }
     }
   }

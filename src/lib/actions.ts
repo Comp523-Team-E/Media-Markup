@@ -95,6 +95,14 @@ export function handleKeydown(e: KeyboardEvent) {
   } else if (e.key === 'b' || e.key === 'B') {
     e.preventDefault();
     addMarker('startEnd');
+  } else if (e.key === 'x' || e.key === 'X') {
+    if (appState.selectedMarkerId) {
+      const m = appState.markers.find(mk => mk.id === appState.selectedMarkerId);
+      if (m?.kind === 'startEnd') {
+        e.preventDefault();
+        splitStartEndMarker(appState.selectedMarkerId);
+      }
+    }
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     if (appState.selectedMarkerId) {
       e.preventDefault();
@@ -301,6 +309,20 @@ export async function deleteMarker(id: string) {
   }
 }
 
+export async function splitStartEndMarker(id: string) {
+  const marker = appState.markers.find(m => m.id === id);
+  if (!marker || marker.kind !== 'startEnd') return;
+  const pos = marker.position;
+  const title = appState.renameInputs[id] ?? '';
+  await deleteMarker(id);
+  await addMarkerAt('end', pos);
+  await addMarkerAt('start', pos);
+  if (title && appState.selectedMarkerId) {
+    appState.renameInputs = { ...appState.renameInputs, [appState.selectedMarkerId]: title };
+    await revalidate();
+  }
+}
+
 // ── Marker position editing ───────────────────────────────────────────────
 
 export function enterEditMode(markerId: string) {
@@ -352,25 +374,26 @@ export function computePreviewSegments(): Segment[] {
     .sort((a, b) => a.position - b.position);
 
   const result: Segment[] = [];
-  let pendingStart: Marker | null = null;
+  const stack: Marker[] = [];
 
   for (const m of previewMarkers) {
-    if (m.kind === 'startEnd') {
-      if (pendingStart) {
-        result.push({ startMs: pendingStart.position, endMs: m.position,
-          title: appState.renameInputs[pendingStart.id] || `Segment ${result.length}` });
-        pendingStart = m;
+    if (m.kind === 'start') {
+      stack.push(m);
+    } else if (m.kind === 'end') {
+      if (stack.length > 0) {
+        const start = stack.pop()!;
+        result.push({ startMs: start.position, endMs: m.position,
+          title: appState.renameInputs[start.id] || `Segment ${result.length}` });
+      }
+    } else if (m.kind === 'startEnd') {
+      if (stack.length > 0) {
+        const start = stack.pop()!;
+        result.push({ startMs: start.position, endMs: m.position,
+          title: appState.renameInputs[start.id] || `Segment ${result.length}` });
+        stack.push(m);
       } else {
         result.push({ startMs: m.position, endMs: m.position,
           title: appState.renameInputs[m.id] || `Segment ${result.length}` });
-      }
-    } else if (m.kind === 'start') {
-      pendingStart = m;
-    } else if (m.kind === 'end') {
-      if (pendingStart) {
-        result.push({ startMs: pendingStart.position, endMs: m.position,
-          title: appState.renameInputs[pendingStart.id] || `Segment ${result.length}` });
-        pendingStart = null;
       }
     }
   }
@@ -392,25 +415,26 @@ export async function renameSegment(anchorId: string) {
 export function computePartialSegments(): Segment[] {
   const sorted = [...appState.markers].sort((a, b) => a.position - b.position);
   const result: Segment[] = [];
-  let pendingStart: Marker | null = null;
+  const stack: Marker[] = [];
 
   for (const m of sorted) {
-    if (m.kind === 'startEnd') {
-      if (pendingStart) {
-        result.push({ startMs: pendingStart.position, endMs: m.position,
-          title: appState.renameInputs[pendingStart.id] || `Segment ${result.length}` });
-        pendingStart = m;
+    if (m.kind === 'start') {
+      stack.push(m);
+    } else if (m.kind === 'end') {
+      if (stack.length > 0) {
+        const start = stack.pop()!;
+        result.push({ startMs: start.position, endMs: m.position,
+          title: appState.renameInputs[start.id] || `Segment ${result.length}` });
+      }
+    } else if (m.kind === 'startEnd') {
+      if (stack.length > 0) {
+        const start = stack.pop()!;
+        result.push({ startMs: start.position, endMs: m.position,
+          title: appState.renameInputs[start.id] || `Segment ${result.length}` });
+        stack.push(m);
       } else {
         result.push({ startMs: m.position, endMs: m.position,
           title: appState.renameInputs[m.id] || `Segment ${result.length}` });
-      }
-    } else if (m.kind === 'start') {
-      pendingStart = m;
-    } else if (m.kind === 'end') {
-      if (pendingStart) {
-        result.push({ startMs: pendingStart.position, endMs: m.position,
-          title: appState.renameInputs[pendingStart.id] || `Segment ${result.length}` });
-        pendingStart = null;
       }
     }
   }
