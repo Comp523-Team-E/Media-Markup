@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { appState } from '$lib/state.svelte';
   import { formatMs, parseTimeMs } from '$lib/utils';
-  import { enterEditMode, cancelEditMode, confirmEditMode } from '$lib/actions';
+  import { selectMarker, enterEditMode, cancelEditMode, confirmEditMode } from '$lib/actions';
   import { validationProblemMarkerIds } from '$lib/validation';
   import type { MarkerKind } from '$lib/types';
 
@@ -70,10 +70,10 @@
           class:marker-row-editing={appState.editingMarkerId === m.id}
           class:marker-row-validation-error={validationProblemIds.has(m.id)}
           data-marker-id={m.id}
-          onclick={() => { appState.selectedMarkerId = m.id; }}
+          onclick={() => { selectMarker(m.id); }}
           role="button"
           tabindex="0"
-          onkeydown={(e) => { if (e.key === 'Enter') appState.selectedMarkerId = m.id; }}
+          onkeydown={(e) => { if (e.key === 'Enter') selectMarker(m.id); }}
         >
           <span
             class="marker-dot"

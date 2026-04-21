@@ -137,7 +137,17 @@ export function handleKeydown(e: KeyboardEvent) {
 
 // ── Seeking ───────────────────────────────────────────────────────────────
 
-export async function seekTo(ms: number) {
+export function centerWaveformAt(ms: number) {
+  const wrap = appState.waveformWrapEl;
+  if (!wrap || appState.zoomLevel <= 1 || appState.durationMs <= 0) return;
+
+  const pct = ms / appState.durationMs;
+  const total = wrap.scrollWidth;
+  const visible = wrap.clientWidth;
+  wrap.scrollLeft = Math.max(0, pct * total - visible / 2);
+}
+
+export async function seekTo(ms: number, options: { centerWaveform?: boolean } = {}) {
   try {
     await invoke('seek', { positionMs: Math.round(ms) });
     appState.positionMs     = ms;
@@ -146,17 +156,20 @@ export async function seekTo(ms: number) {
     if (appState.wavesurfer && appState.durationMs > 0) {
       appState.wavesurfer.setTime(ms / 1000);
     }
-    // Scroll waveform to keep the new position visible when zoomed
-    const wrap = appState.waveformWrapEl;
-    if (wrap && appState.zoomLevel > 1 && appState.durationMs > 0 && appState.followPlayhead) {
-      const pct     = ms / appState.durationMs;
-      const total   = wrap.scrollWidth;
-      const visible = wrap.clientWidth;
-      wrap.scrollLeft = Math.max(0, pct * total - visible / 2);
+    if (options.centerWaveform || appState.followPlayhead) {
+      centerWaveformAt(ms);
     }
   } catch (e) {
     appState.error = String(e);
   }
+}
+
+export async function selectMarker(id: string) {
+  const marker = appState.markers.find(m => m.id === id);
+  if (!marker) return;
+
+  appState.selectedMarkerId = marker.id;
+  await seekTo(marker.position, { centerWaveform: true });
 }
 
 export async function seekToPrevMarker() {
@@ -164,8 +177,7 @@ export async function seekToPrevMarker() {
     .filter(m => m.position < appState.positionMs - 50)
     .sort((a, b) => b.position - a.position)[0];
   if (prev) {
-    appState.selectedMarkerId = prev.id;
-    await seekTo(prev.position);
+    await selectMarker(prev.id);
   }
 }
 
@@ -174,8 +186,7 @@ export async function seekToNextMarker() {
     .filter(m => m.position > appState.positionMs + 50)
     .sort((a, b) => a.position - b.position)[0];
   if (next) {
-    appState.selectedMarkerId = next.id;
-    await seekTo(next.position);
+    await selectMarker(next.id);
   }
 }
 

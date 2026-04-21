@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { appState } from '$lib/state.svelte';
-import { seekTo, seekToPrevMarker, seekToNextMarker, stepBack, stepFwd, handleFollowPlayhead } from '$lib/actions';
+import { seekTo, selectMarker, seekToPrevMarker, seekToNextMarker, stepBack, stepFwd, handleFollowPlayhead } from '$lib/actions';
 import { resetAppState } from '../helpers/reset-state';
 import type { Marker } from '$lib/types';
 
@@ -89,6 +89,19 @@ describe('seekToPrevMarker', () => {
     expect(appState.selectedMarkerId).toBe('b');
   });
 
+  it('centers the previous marker when zoomed', async () => {
+    mockIPC(() => undefined);
+    const wrap = makeWrapEl(1000, 200);
+    appState.markers = [marker('a', 5000)];
+    appState.positionMs = 8000;
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    appState.followPlayhead = false;
+    await seekToPrevMarker();
+    expect(wrap.scrollLeft).toBe(400);
+  });
+
   it('does not change selectedMarkerId when no previous marker exists', async () => {
     mockIPC(() => undefined);
     appState.markers = [marker('a', 8000)];
@@ -130,6 +143,19 @@ describe('seekToNextMarker', () => {
     appState.positionMs = 5000;
     await seekToNextMarker();
     expect(appState.selectedMarkerId).toBe('a');
+  });
+
+  it('centers the next marker when zoomed', async () => {
+    mockIPC(() => undefined);
+    const wrap = makeWrapEl(1000, 200);
+    appState.markers = [marker('a', 5000)];
+    appState.positionMs = 1000;
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    appState.followPlayhead = false;
+    await seekToNextMarker();
+    expect(wrap.scrollLeft).toBe(400);
   });
 
   it('does not change selectedMarkerId when no next marker exists', async () => {
@@ -207,7 +233,7 @@ describe('seekTo — waveform scroll sync', () => {
     appState.waveformWrapEl = wrap;
     appState.zoomLevel = 2;
     appState.durationMs = 10_000;
-    appState.followPlayhead = true
+    appState.followPlayhead = true;
     await seekTo(5000);
     expect(wrap.scrollLeft).toBe(400);
   });
@@ -219,6 +245,7 @@ describe('seekTo — waveform scroll sync', () => {
     appState.waveformWrapEl = wrap;
     appState.zoomLevel = 2;
     appState.durationMs = 10_000;
+    appState.followPlayhead = true;
     await seekTo(100);
     expect(wrap.scrollLeft).toBe(0);
   });
@@ -265,6 +292,39 @@ describe('seekTo — followPlayhead', () => {
     appState.followPlayhead = true;
     await seekTo(5000);
     expect(wrap.scrollLeft).toBe(400);
+  });
+});
+
+describe('selectMarker', () => {
+  it('selects and seeks to the marker', async () => {
+    mockIPC(() => undefined);
+    appState.markers = [marker('a', 3000)];
+    appState.durationMs = 10_000;
+    await selectMarker('a');
+    expect(appState.selectedMarkerId).toBe('a');
+    expect(appState.positionMs).toBe(3000);
+  });
+
+  it('centers the marker when zoomed even if followPlayhead is false', async () => {
+    mockIPC(() => undefined);
+    const wrap = makeWrapEl(1000, 200);
+    appState.markers = [marker('a', 5000)];
+    appState.waveformWrapEl = wrap;
+    appState.zoomLevel = 2;
+    appState.durationMs = 10_000;
+    appState.followPlayhead = false;
+    await selectMarker('a');
+    expect(wrap.scrollLeft).toBe(400);
+  });
+
+  it('does nothing when the marker does not exist', async () => {
+    const handler = vi.fn(() => undefined);
+    mockIPC(handler);
+    appState.markers = [marker('a', 3000)];
+    appState.durationMs = 10_000;
+    await selectMarker('missing');
+    expect(appState.selectedMarkerId).toBeNull();
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 

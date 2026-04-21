@@ -255,19 +255,23 @@ describe('handleKeydown — seeking', () => {
   it('d seeks to the previous marker', async () => {
     appState.markers = [{ id: 'a', position: 2000, kind: 'start' }];
     appState.positionMs = 5000;
+    appState.durationMs = 10_000;
     mockIPC(() => undefined);
     handleKeydown(keyEvent('d'));
     await flush();
     expect(appState.positionMs).toBe(2000);
+    expect(appState.selectedMarkerId).toBe('a');
   });
 
   it('f seeks to the next marker', async () => {
     appState.markers = [{ id: 'a', position: 8000, kind: 'end' }];
     appState.positionMs = 5000;
+    appState.durationMs = 10_000;
     mockIPC(() => undefined);
     handleKeydown(keyEvent('f'));
     await flush();
     expect(appState.positionMs).toBe(8000);
+    expect(appState.selectedMarkerId).toBe('a');
   });
 });
 
