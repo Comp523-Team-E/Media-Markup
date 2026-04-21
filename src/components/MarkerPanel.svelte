@@ -290,7 +290,7 @@
 
   .dot-start  { background: #22c55e; }
   .dot-end    { background: #f87171; }
-  .dot-both   { background: #facc15; }
+  .dot-both   { background: linear-gradient(to bottom, #22c55e 0 50%, #f87171 50% 100%); }
 
   .marker-time {
     font-variant-numeric: tabular-nums;

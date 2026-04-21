@@ -185,6 +185,9 @@
       {:else}
         <div
           class="marker-line"
+          class:marker-start={m.kind === 'start'}
+          class:marker-end={m.kind === 'end'}
+          class:marker-both={m.kind === 'startEnd'}
           class:marker-selected={appState.selectedMarkerId === m.id}
           class:marker-validation-error={validationProblemIds.has(m.id)}
           style="left: {origPct}%"
@@ -267,22 +270,30 @@
     transition: opacity 0.1s;
   }
 
+  .marker-line.marker-start {
+    background: #22c55e;
+  }
+
+  .marker-line.marker-end {
+    background: #f87171;
+  }
+
+  .marker-line.marker-both {
+    background: linear-gradient(to bottom, #22c55e 0 50%, #f87171 50% 100%);
+  }
+
   .marker-line.marker-selected {
-    background: #facc15;
     opacity: 1;
-    width: 2px;
-    box-shadow: 0 0 6px #facc15;
   }
 
   .marker-line.marker-ghost {
-    background: #22c55e;
+    background: #f97316;
     opacity: 0.3;
   }
 
   .marker-line.marker-editing {
     background: #f97316;
     opacity: 1;
-    box-shadow: 0 0 8px #f97316;
     animation: editing-pulse 1s ease-in-out infinite alternate;
   }
 
