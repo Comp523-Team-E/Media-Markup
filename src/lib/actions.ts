@@ -167,6 +167,7 @@ export async function seekTo(ms: number, options: { centerWaveform?: boolean } =
 export async function selectMarker(id: string) {
   const marker = appState.markers.find(m => m.id === id);
   if (!marker) return;
+  if (appState.selectedMarkerId === appState.editingMarkerId) return;
 
   appState.selectedMarkerId = marker.id;
   await seekTo(marker.position, { centerWaveform: true });
@@ -366,6 +367,11 @@ export async function confirmEditMode() {
   } catch (e) {
     appState.error = String(e);
   }
+}
+
+export function moveEditingMarkerToMs(ms: number) {
+  if (!appState.editingMarkerId) return;
+  appState.editingPositionMs = Math.max(0, Math.min(ms, appState.durationMs));
 }
 
 export function nudgeMarker(direction: -1 | 1) {

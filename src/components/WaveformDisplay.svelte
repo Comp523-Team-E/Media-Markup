@@ -4,6 +4,7 @@
   import { appState } from '$lib/state.svelte';
   import { kindLabel, formatMs, ZOOM_LEVELS } from '$lib/utils';
   import { validationProblemMarkerIds } from '$lib/validation';
+  import { moveEditingMarkerToMs } from '$lib/actions';
 
   let waveformEl     = $state<HTMLDivElement | null>(null);
   let waveformWrapEl = $state<HTMLDivElement | null>(null);
@@ -76,8 +77,16 @@
 
   // ── Waveform drag seeking ──────────────────────────────────────────────
   // We own pointer events on the container so the playhead moves in real-time.
+  //
+  // editDragging tracks a pointer-down that started while a marker was being
+  // edited.  It is intentionally separate from appState.waveformDragging so
+  // that confirmEditMode() (triggered by Enter) cannot clear it: if the user
+  // presses Enter while still holding the mouse, the subsequent pointer-up must
+  // still be handled as an edit drag — not fall through to the seek path and
+  // snap the playhead to the mouse position.
 
   let waveformWasPlaying = false;
+  let editDragging = false;
 
   function waveformPosFromEvent(e: PointerEvent): number {
     if (!waveformEl) return 0;
@@ -92,28 +101,44 @@
     if (!appState.metadata || appState.durationMs === 0) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const ms = waveformPosFromEvent(e);
+    if (appState.editingMarkerId) {
+      editDragging = true;
+      appState.waveformDragging = true;
+      moveEditingMarkerToMs(ms);
+      return;
+    }
     appState.waveformDragging = true;
     waveformWasPlaying = appState.isPlaying;
     if (appState.isPlaying) {
       appState.isPlaying = false;
       invoke('pause').catch(() => {});
     }
-    const ms = waveformPosFromEvent(e);
     appState.positionMs = ms;
     if (appState.wavesurfer) appState.wavesurfer.setTime(ms / 1000);
   }
 
   function handlePointerMove(e: PointerEvent) {
-    if (!appState.waveformDragging) return;
     const ms = waveformPosFromEvent(e);
+    if (editDragging) {
+      moveEditingMarkerToMs(ms);
+      return;
+    }
+    if (!appState.waveformDragging) return;
     appState.positionMs = ms;
     if (appState.wavesurfer) appState.wavesurfer.setTime(ms / 1000);
   }
 
   async function handlePointerUp(e: PointerEvent) {
+    const ms = waveformPosFromEvent(e);
+    if (editDragging) {
+      editDragging = false;
+      appState.waveformDragging = false;
+      moveEditingMarkerToMs(ms);
+      return;
+    }
     if (!appState.waveformDragging) return;
     appState.waveformDragging = false;
-    const ms = waveformPosFromEvent(e);
     appState.positionMs    = ms;
     appState.syncPositionMs = ms;
     appState.syncWallTime   = performance.now();
@@ -148,6 +173,7 @@
 
 <div
   class="waveform-wrap"
+  class:waveform-editing={!!appState.editingMarkerId}
   bind:this={waveformWrapEl}
   role="slider"
   aria-label="Playback position"
@@ -160,6 +186,9 @@
   onpointerup={handlePointerUp}
   onpointercancel={handlePointerUp}
 >
+  {#if appState.editingMarkerId}
+    <div class="edit-mode-hint">Click to move marker · Enter to confirm · Esc to cancel</div>
+  {/if}
   <div class="waveform-scroll" style="width: {appState.zoomLevel * 100}%">
     <div class="waveform-inner" bind:this={waveformEl}></div>
     <!-- Marker overlays — left: pct% is relative to waveform-scroll, same width as the waveform -->
@@ -244,6 +273,28 @@
     border-bottom: 1px solid #21262d;
     overflow-x: auto;
     overflow-y: hidden;
+  }
+
+  .waveform-wrap.waveform-editing {
+    cursor: crosshair;
+    outline: 2px solid #f97316;
+    outline-offset: -2px;
+  }
+
+  .edit-mode-hint {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    background: rgba(249, 115, 22, 0.85);
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    white-space: nowrap;
+    user-select: none;
   }
 
   .waveform-scroll {
