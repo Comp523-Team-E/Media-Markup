@@ -167,7 +167,8 @@ export async function seekTo(ms: number, options: { centerWaveform?: boolean } =
 export async function selectMarker(id: string) {
   const marker = appState.markers.find(m => m.id === id);
   if (!marker) return;
-  if (appState.selectedMarkerId === appState.editingMarkerId) return;
+  if (appState.selectedMarkerId === appState.editingMarkerId 
+    && appState.selectedMarkerId !== null) return;
 
   appState.selectedMarkerId = marker.id;
   await seekTo(marker.position, { centerWaveform: true });
