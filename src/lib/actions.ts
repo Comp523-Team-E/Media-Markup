@@ -114,6 +114,12 @@ export function handleKeydown(e: KeyboardEvent) {
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
     stepBack();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    seekToEnd()
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    seekToStart()
   } else if (e.key === 'd' || e.key === 'D') {
     e.preventDefault();
     seekToPrevMarker();
@@ -188,6 +194,14 @@ export async function seekToNextMarker() {
   if (next) {
     await selectMarker(next.id);
   }
+}
+
+export async function seekToStart() {
+  await seekTo(0);
+}
+
+export async function seekToEnd() {
+  await seekTo(appState.durationMs);
 }
 
 export async function stepBack() {

@@ -39,22 +39,24 @@
           ms
         </span>
       </div>
-      <div class="shortcut-row"><kbd>1–5</kbd><span>Playback Speed</span></div>
+      <div class="shortcut-row"><kbd>↑</kbd><span>Seek to end</span></div>
+      <div class="shortcut-row"><kbd>↓</kbd><span>Seek to start</span></div>
+      <div class="shortcut-row"><kbd>1–5</kbd><span>Playback speed</span></div>
 
       <div class="shortcut-subheading">Waveform Zoom</div>
       <div class="shortcut-row"><kbd>-</kbd><span>Zoom out</span></div>
       <div class="shortcut-row"><kbd>+</kbd><span>Zoom in</span></div>
 
       <div class="shortcut-subheading">Add Marker</div>
-      <div class="shortcut-row"><kbd>S</kbd><span>Start</span></div>
-      <div class="shortcut-row"><kbd>E</kbd><span>End</span></div>
-      <div class="shortcut-row"><kbd>B</kbd><span>Start+End</span></div>
+      <div class="shortcut-row"><kbd>S</kbd><span>Add start</span></div>
+      <div class="shortcut-row"><kbd>E</kbd><span>Add end</span></div>
+      <div class="shortcut-row"><kbd>B</kbd><span>Add start+end</span></div>
 
       <div class="shortcut-subheading">Manage Markers</div>
-      <div class="shortcut-row"><kbd>D</kbd><span>Previous Marker</span></div>
-      <div class="shortcut-row"><kbd>F</kbd><span>Next Marker</span></div>
-      <div class="shortcut-row"><kbd>X</kbd><span>Split Start+End Marker</span></div>
-      <div class="shortcut-row"><kbd>Del</kbd><span>Delete Selected Marker</span></div>
+      <div class="shortcut-row"><kbd>D</kbd><span>Seek to previous</span></div>
+      <div class="shortcut-row"><kbd>F</kbd><span>Seek to next</span></div>
+      <div class="shortcut-row"><kbd>X</kbd><span>Split start+end</span></div>
+      <div class="shortcut-row"><kbd>Del</kbd><span>Delete selected</span></div>
 
       <div class="shortcut-subheading">Edit Marker</div>
       <div class="shortcut-row"><kbd>[</kbd><span>Nudge left 100ms</span></div>
@@ -112,8 +114,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     flex: 0 0 24px;
     background: #1e2a3a;
     border: 1px solid #30363d;
