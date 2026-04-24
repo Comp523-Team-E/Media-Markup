@@ -6,6 +6,7 @@ import {
   cancelEditMode,
   confirmEditMode,
   nudgeMarker,
+  moveEditingMarkerToMs,
   computePreviewSegments,
 } from '$lib/actions';
 import { resetAppState } from '../helpers/reset-state';
@@ -186,6 +187,29 @@ describe('confirmEditMode', () => {
     await confirmEditMode();
     expect(appState.error).toMatch('move failed');
   });
+
+  it('does not move the playhead when confirmed after a waveform click', async () => {
+    // Regression: when the user clicks the waveform to reposition a marker and
+    // then presses Enter, confirmEditMode must not touch positionMs.  The bug
+    // was that the waveform pointer-down handler set waveformDragging=true before
+    // the edit-mode early-return; if Enter was pressed while the pointer was still
+    // captured, handlePointerUp fired after editingMarkerId was already null and
+    // fell through to the seek path, snapping the playhead to the mouse position.
+    appState.markers = [marker('m1', 3000)];
+    appState.positionMs = 15_000; // playhead far from the marker
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 8_000; // moved to new position via waveform click
+    // Simulate the race-condition state: pointer is still captured (dragging=true)
+    // even though confirmEditMode is about to run
+    appState.waveformDragging = true;
+    mockIPC((cmd: string) => (cmd === 'validate_markers' ? [] : undefined));
+    await confirmEditMode();
+    // positionMs must not have changed regardless of waveformDragging state
+    expect(appState.positionMs).toBe(15_000);
+    // waveformDragging must also have been left alone by confirmEditMode
+    // (the component's pointer-up handler is responsible for clearing it)
+    expect(appState.waveformDragging).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -251,6 +275,75 @@ describe('nudgeMarker', () => {
     nudgeMarker(-1);
     // After auto-entry, editingPositionMs starts at 3000 then nudges -100
     expect(appState.editingPositionMs).toBe(2900);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// moveEditingMarkerToMs
+// ---------------------------------------------------------------------------
+
+describe('moveEditingMarkerToMs', () => {
+  it('does nothing when not in edit mode', () => {
+    appState.editingMarkerId = null;
+    appState.editingPositionMs = 0;
+    appState.durationMs = 60_000;
+    moveEditingMarkerToMs(5000);
+    expect(appState.editingPositionMs).toBe(0);
+  });
+
+  it('updates editingPositionMs to the given value when in edit mode', () => {
+    appState.markers = [marker('m1', 3000)];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 3000;
+    appState.durationMs = 60_000;
+    moveEditingMarkerToMs(8000);
+    expect(appState.editingPositionMs).toBe(8000);
+  });
+
+  it('clamps to 0 when given a negative value', () => {
+    appState.markers = [marker('m1', 3000)];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 3000;
+    appState.durationMs = 60_000;
+    moveEditingMarkerToMs(-500);
+    expect(appState.editingPositionMs).toBe(0);
+  });
+
+  it('clamps to durationMs when given a value past the end', () => {
+    appState.markers = [marker('m1', 3000)];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 3000;
+    appState.durationMs = 60_000;
+    moveEditingMarkerToMs(99_000);
+    expect(appState.editingPositionMs).toBe(60_000);
+  });
+
+  it('accepts a value exactly at 0', () => {
+    appState.markers = [marker('m1', 3000)];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 3000;
+    appState.durationMs = 60_000;
+    moveEditingMarkerToMs(0);
+    expect(appState.editingPositionMs).toBe(0);
+  });
+
+  it('accepts a value exactly at durationMs', () => {
+    appState.markers = [marker('m1', 3000)];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 3000;
+    appState.durationMs = 60_000;
+    moveEditingMarkerToMs(60_000);
+    expect(appState.editingPositionMs).toBe(60_000);
+  });
+
+  it('does not alter positionMs (playback position)', () => {
+    appState.markers = [marker('m1', 3000)];
+    appState.editingMarkerId = 'm1';
+    appState.editingPositionMs = 3000;
+    appState.positionMs = 1000;
+    appState.durationMs = 60_000;
+    moveEditingMarkerToMs(20_000);
+    expect(appState.positionMs).toBe(1000);
   });
 });
 
