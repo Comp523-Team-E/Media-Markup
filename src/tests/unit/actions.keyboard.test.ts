@@ -252,6 +252,26 @@ describe('handleKeydown — seeking', () => {
     expect(appState.positionMs).toBe(5000);
   });
 
+  it('ArrowUp calls seekToEnd', async () => {
+    appState.positionMs = 10_000;
+    appState.stepMs = 5000;
+    appState.durationMs = 60_000;
+    mockIPC(() => undefined);
+    handleKeydown(keyEvent('ArrowUp'));
+    await flush();
+    expect(appState.positionMs).toBe(60_000);
+  });
+
+  it('ArrowDown calls seekToStart', async () => {
+    appState.positionMs = 10_000;
+    appState.stepMs = 5000;
+    appState.durationMs = 60_000;
+    mockIPC(() => undefined);
+    handleKeydown(keyEvent('ArrowDown'));
+    await flush();
+    expect(appState.positionMs).toBe(0);
+  });
+
   it('d seeks to the previous marker', async () => {
     appState.markers = [{ id: 'a', position: 2000, kind: 'start' }];
     appState.positionMs = 5000;
