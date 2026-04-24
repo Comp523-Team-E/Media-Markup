@@ -120,6 +120,9 @@ export function handleKeydown(e: KeyboardEvent) {
   } else if (e.key === 'ArrowDown') {
     e.preventDefault()
     seekToStart()
+  } else if (e.key === 'l' || e.key === 'L') {
+    e.preventDefault();
+    appState.followPlayhead = !appState.followPlayhead;
   } else if (e.key === 'd' || e.key === 'D') {
     e.preventDefault();
     seekToPrevMarker();

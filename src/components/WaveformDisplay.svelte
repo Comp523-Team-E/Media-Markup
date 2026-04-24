@@ -10,6 +10,49 @@
   let waveformWrapEl = $state<HTMLDivElement | null>(null);
   const validationProblemIds = $derived(validationProblemMarkerIds(appState.markers, appState.validationError));
 
+  // ── Timeline tick helpers ──────────────────────────────────────────────
+  const TIMELINE_HEIGHT = 24; // px — keep in sync with CSS
+
+  // Nice major intervals in ms and their minor subdivision counts
+  const NICE_INTERVALS_MS = [100, 250, 500, 1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 900000, 1800000, 3600000];
+  const MINOR_COUNTS      = [2,   5,   5,   4,    4,    5,    5,     3,     6,     4,     4,      5,      4,      3,      6,       4     ];
+
+  function formatTickTime(ms: number, durationMs: number): string {
+    const totalS = Math.round(ms / 1000);
+    const h = Math.floor(totalS / 3600);
+    const m = Math.floor((totalS % 3600) / 60);
+    const s = totalS % 60;
+    if (durationMs >= 3_600_000) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function computeTicks(durationMs: number, zoomLevel: number) {
+    if (durationMs <= 0) return { major: [] as { pct: number; label: string }[], minor: [] as { pct: number }[] };
+    const targetMs = durationMs / (10 * zoomLevel);
+    let majorMs   = NICE_INTERVALS_MS[NICE_INTERVALS_MS.length - 1];
+    let minorCount = MINOR_COUNTS[MINOR_COUNTS.length - 1];
+    for (let i = 0; i < NICE_INTERVALS_MS.length; i++) {
+      if (NICE_INTERVALS_MS[i] >= targetMs) { majorMs = NICE_INTERVALS_MS[i]; minorCount = MINOR_COUNTS[i]; break; }
+    }
+    const minorMs = majorMs / minorCount;
+    const major: { pct: number; label: string }[] = [];
+    for (let i = 0; i <= Math.ceil(durationMs / majorMs); i++) {
+      const t = i * majorMs; if (t > durationMs) break;
+      major.push({ pct: t / durationMs * 100, label: formatTickTime(t, durationMs) });
+    }
+    const minor: { pct: number }[] = [];
+    for (let i = 0; i <= Math.ceil(durationMs / minorMs); i++) {
+      if (i % minorCount === 0) continue; // coincides with a major tick
+      const t = i * minorMs; if (t > durationMs) break;
+      minor.push({ pct: t / durationMs * 100 });
+    }
+    return { major, minor };
+  }
+
+  const ticks = $derived(computeTicks(appState.durationMs, appState.zoomLevel));
+
   // Expose the wrap element so external code can scroll it if needed
   $effect(() => { appState.waveformWrapEl = waveformWrapEl; });
 
@@ -29,7 +72,7 @@
       progressColor: '#3b82f6',
       cursorColor: '#ffffff',
       cursorWidth: 2,
-      height: waveformWrapEl?.clientHeight || 180,
+      height: (waveformWrapEl?.clientHeight || 180) - TIMELINE_HEIGHT,
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
@@ -40,7 +83,7 @@
     appState.wavesurfer = ws;
 
     const resizeObserver = new ResizeObserver(([entry]) => {
-      const height = Math.round(entry.contentRect.height);
+      const height = Math.round(entry.contentRect.height) - TIMELINE_HEIGHT;
       if (height > 0) ws.setOptions({ height });
     });
     if (waveformWrapEl) resizeObserver.observe(waveformWrapEl);
@@ -224,6 +267,18 @@
         ></div>
       {/if}
     {/each}
+    {#if appState.durationMs > 0}
+      <div class="timeline-ruler">
+        {#each ticks.minor as tick (tick.pct)}
+          <div class="tick-minor" style="left: {tick.pct}%"></div>
+        {/each}
+        {#each ticks.major as tick (tick.pct)}
+          <div class="tick-major" style="left: {tick.pct}%">
+            <span class="tick-label">{tick.label}</span>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -299,19 +354,63 @@
 
   .waveform-scroll {
     position: relative;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-width: 100%;
   }
 
   .waveform-inner {
     width: 100%;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .timeline-ruler {
+    position: relative;
+    width: 100%;
+    height: 24px; /* = TIMELINE_HEIGHT */
+    flex-shrink: 0;
+    background: #080c11;
+    border-top: 1px solid #21262d;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .tick-major {
+    position: absolute;
+    top: 0;
+    width: 1px;
     height: 100%;
+    background: #2e3d52;
+    transform: translateX(-50%);
+  }
+
+  .tick-label {
+    position: absolute;
+    left: 3px;
+    top: 4px;
+    font-size: 9px;
+    color: #5c7080;
+    white-space: nowrap;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .tick-minor {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    height: 7px;
+    background: #1e2a38;
+    transform: translateX(-50%);
   }
 
   .marker-line {
     position: absolute;
     top: 0;
-    bottom: 0;
+    bottom: 24px; /* stop above timeline ruler (= TIMELINE_HEIGHT) */
     width: 2px;
     background: #22c55e;
     pointer-events: none;

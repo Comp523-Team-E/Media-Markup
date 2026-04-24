@@ -46,6 +46,7 @@
       <div class="shortcut-subheading">Waveform Zoom</div>
       <div class="shortcut-row"><kbd>-</kbd><span>Zoom out</span></div>
       <div class="shortcut-row"><kbd>+</kbd><span>Zoom in</span></div>
+      <div class="shortcut-row"><kbd>L</kbd><span>Toggle follow playhead</span></div>
 
       <div class="shortcut-subheading">Add Marker</div>
       <div class="shortcut-row"><kbd>S</kbd><span>Add start</span></div>
