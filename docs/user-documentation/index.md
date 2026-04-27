@@ -36,33 +36,7 @@ In the segment list the user can see all of the valid segments formed by the cur
 
 ### Shortcut List 
 
-This section lists all of the shortcuts provided to the user for easy reference. Some shortcuts, such as the seek shortcut used by the arrow keys, can be configured to use different values or timesteps. Refer to the [Keyboard Shortcuts](#keyboard-shortcuts) section for a comprehensive list of the available shortcuts. 
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|---|---|
-| `Space` | Play / Pause |
-| `←` | Seek backwards (configurable step) |
-| `→` | Seek forwards (configurable step) |
-| `1` | Set playback speed to 0.5× |
-| `2` | Set playback speed to 0.75× |
-| `3` | Set playback speed to 1× |
-| `4` | Set playback speed to 1.5× |
-| `5` | Set playback speed to 2× |
-| `-` | Zoom out |
-| `+` / `=` | Zoom in |
-| `S` | Add start marker at current position |
-| `E` | Add end marker at current position |
-| `B` | Add start/end marker at current position |
-| `D` | Seek to previous marker |
-| `F` | Seek to next marker |
-| `[` | Nudge selected marker left by 100 ms |
-| `]` | Nudge selected marker right by 100 ms |
-| `Enter` | Confirm marker position edit |
-| `Escape` | Cancel marker position edit |
-| `Delete` / `Backspace` | Delete selected marker |
-| `Ctrl+E` / `Cmd+E` | Export markers as CSV |
+This section lists all of the shortcuts provided to the user for easy reference. Some shortcuts, such as the seek shortcut used by the arrow keys, can be configured to use different values or timesteps. Refer to the [Keyboard Shortcuts](shortcuts.md) page for a comprehensive list of the available shortcuts as well as instructions on how to modify their bindings. 
 
 ## Supported Audio File Formats
 
