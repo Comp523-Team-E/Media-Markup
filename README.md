@@ -33,7 +33,6 @@ Install the required tools first:
 - [Node.js](https://nodejs.org/) v18 or newer, which includes `npm`
 - [Rust](https://www.rust-lang.org/tools/install), installed through `rustup`
 - [Tauri v2 system prerequisites](https://v2.tauri.app/start/prerequisites/) for your operating system
-- **macOS only:** [Homebrew](https://brew.sh/), used by the FFmpeg sidecar setup script
 - **Windows only:** [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/), as described in the Tauri prerequisites
 
 Then clone and run the app:

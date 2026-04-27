@@ -314,7 +314,7 @@ rustup target add <target-triple>
 
 Tauri depends on platform-specific native libraries and build tools.
 
-- macOS: install Xcode Command Line Tools and Homebrew.
+- macOS: install Xcode Command Line Tools.
 - Windows: install Microsoft Visual Studio C++ Build Tools.
 - Linux: install the WebKitGTK, SSL, appindicator, SVG, and audio development packages listed in the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) and mirrored in `.github/workflows/ci.yml`.
 
@@ -331,7 +331,7 @@ npm run download-ffmpeg
 ls src-tauri/binaries
 ```
 
-On macOS, the download script expects Homebrew and uses the Homebrew FFmpeg binary. On Linux and Windows, it downloads from BtbN FFmpeg builds and requires tools such as `curl`, `tar`, or `unzip`.
+On macOS, the download script downloads a target-specific static FFmpeg binary. On Linux and Windows, it downloads from BtbN FFmpeg builds and requires tools such as `curl`, `tar`, or `unzip`.
 
 If adding a new platform, update:
 

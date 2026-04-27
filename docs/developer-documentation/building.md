@@ -5,7 +5,6 @@
 - **Node.js** (v18+) and **npm** — [nodejs.org](https://nodejs.org)
 - **Rust** (stable) — install via [rustup.rs](https://rustup.rs)
 - **Tauri system dependencies** — follow the [Tauri v2 prerequisites guide](https://v2.tauri.app/start/prerequisites/) for your OS (Linux requires several system libraries; macOS and Windows are covered by the tools above)
-- **macOS only:** [Homebrew](https://brew.sh) — the build script uses it to install the ffmpeg sidecar automatically
 - **Linux only:** `curl` and `tar` — used by the ffmpeg download script (usually preinstalled)
 
 ## Building

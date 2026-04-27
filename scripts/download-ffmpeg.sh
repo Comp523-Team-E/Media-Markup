@@ -48,37 +48,44 @@ require_cmd() {
     fi
 }
 
-# Download macOS binary via Homebrew (handles both arm64 and x86_64 natively).
+# Download macOS binary from ffmpeg-static. Do not copy the Homebrew binary:
+# Homebrew's ffmpeg is dynamically linked against Homebrew dylibs, which are
+# not present inside the packaged .app on end-user machines.
 download_macos() {
     local triple="$1"   # aarch64-apple-darwin or x86_64-apple-darwin
     local dest="$BINARIES_DIR/ffmpeg-${triple}"
 
-    if sidecar_ready "$dest"; then
-        return 0
+    if [[ -f "$dest" ]]; then
+        if command -v otool &>/dev/null && otool -L "$dest" 2>/dev/null | grep -Eq '/(opt/homebrew|usr/local)/(Cellar|opt)/'; then
+            log "Replacing dynamically linked Homebrew ffmpeg sidecar: $dest"
+        elif sidecar_ready "$dest"; then
+            return 0
+        fi
     fi
 
-    log "Installing ffmpeg sidecar for $triple via Homebrew..."
+    require_cmd curl
+    require_cmd gunzip
 
-    if ! command -v brew &>/dev/null; then
-        echo "Error: Homebrew not found. Install it from https://brew.sh then re-run." >&2
-        echo "  Alternatively, install ffmpeg manually and place the binary at:" >&2
-        echo "    $dest" >&2
-        exit 1
+    local arch
+    case "$triple" in
+        aarch64-apple-darwin) arch="arm64" ;;
+        x86_64-apple-darwin)  arch="x64" ;;
+        *) echo "Unsupported macOS target: $triple" >&2; exit 1 ;;
+    esac
+
+    local release="b6.1.1"
+    local asset_url="https://github.com/eugeneware/ffmpeg-static/releases/download/${release}/ffmpeg-darwin-${arch}.gz"
+
+    log "Downloading static macOS ffmpeg sidecar for $triple ..."
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    trap "rm -rf '$tmpdir'" EXIT
+
+    curl -fL -o "$tmpdir/ffmpeg.gz" "$asset_url"
+    if [[ -f "$dest" ]]; then
+        chmod u+w "$dest"
     fi
-
-    if ! brew list ffmpeg &>/dev/null 2>&1; then
-        log "ffmpeg not installed — running 'brew install ffmpeg'..."
-        brew install ffmpeg
-    fi
-
-    local brew_ffmpeg
-    brew_ffmpeg="$(brew --prefix ffmpeg)/bin/ffmpeg"
-    if [[ ! -f "$brew_ffmpeg" ]]; then
-        echo "Error: Could not find ffmpeg binary at expected Homebrew path: $brew_ffmpeg" >&2
-        exit 1
-    fi
-
-    cp "$brew_ffmpeg" "$dest"
+    gunzip -c "$tmpdir/ffmpeg.gz" > "$dest"
     chmod +x "$dest"
     log "Installed: $dest"
 }
