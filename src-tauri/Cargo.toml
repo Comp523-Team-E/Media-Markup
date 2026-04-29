@@ -31,7 +31,6 @@ atomic_float      = "0.1"
 rtrb              = "0.3"
 cpal              = "0.15"
 symphonia         = { version = "0.5", features = ["all"] }
-rubato            = "0.15"
 csv               = "1"
 
 [dev-dependencies]
