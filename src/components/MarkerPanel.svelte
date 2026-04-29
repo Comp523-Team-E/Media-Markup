@@ -67,6 +67,7 @@
       {#each [...appState.markers].sort((a, b) => b.position - a.position) as m (m.id)}
         <div
           class="marker-row"
+          class:marker-row-has-split={m.kind === 'startEnd'}
           class:marker-row-selected={appState.selectedMarkerId === m.id}
           class:marker-row-editing={appState.editingMarkerId === m.id}
           class:marker-row-validation-error={validationProblemIds.has(m.id)}
@@ -121,7 +122,7 @@
               }}
             />
           {:else}
-            <span class="marker-time">{formatMs(m.position)}</span>
+            <span class="marker-time copyable-text">{formatMs(m.position)}</span>
           {/if}
           <select
             class="kind-select"
@@ -266,12 +267,11 @@
 
   .marker-row {
     display: grid;
-    grid-template-columns: 8px minmax(86px, 1fr) minmax(64px, 88px) 26px 26px 26px;
+    grid-template-columns: 8px minmax(86px, 1fr) minmax(64px, 88px) 26px minmax(0, 8px) 26px;
     align-items: center;
     column-gap: 8px;
     padding: 7px 14px;
     width: 100%;
-    min-width: max-content;
     min-height: 41px;
     cursor: pointer;
     border-bottom: 1px solid #161b22;
@@ -279,6 +279,10 @@
   }
 
   .marker-row:hover { background: #161b22; }
+
+  .marker-row.marker-row-has-split {
+    grid-template-columns: 8px minmax(86px, 1fr) minmax(64px, 88px) 26px 26px 26px;
+  }
 
   .marker-row-selected { background: #1a2640 !important; }
 
@@ -396,15 +400,19 @@
   .split-btn:hover { color: #facc15; border-color: #facc15; background: #1e1c0a; }
 
   .split-placeholder {
-    width: 26px;
+    width: 100%;
     height: 26px;
     flex-shrink: 0;
   }
 
   @media (max-width: 650px) {
     .marker-row {
-      grid-template-columns: 8px minmax(82px, 1fr) minmax(48px, 56px) 26px 26px 26px;
+      grid-template-columns: 8px minmax(82px, 1fr) minmax(48px, 56px) 26px minmax(0, 8px) 26px;
       column-gap: 6px;
+    }
+
+    .marker-row.marker-row-has-split {
+      grid-template-columns: 8px minmax(82px, 1fr) minmax(48px, 56px) 26px 26px 26px;
     }
 
     .kind-select {

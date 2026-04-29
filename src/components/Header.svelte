@@ -29,7 +29,7 @@
   <div class="header-left">
     <h1 class="app-title">Audio Ninja</h1>
     <p class="app-sub">
-      <span class="file-name" title={appState.metadata?.fileName}>{appState.metadata?.fileName}</span>
+      <span class="file-name copyable-text" title={appState.metadata?.fileName}>{appState.metadata?.fileName}</span>
       <span class="file-format">{fileFormat}</span>
     </p>
   </div>
