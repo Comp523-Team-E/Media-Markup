@@ -211,8 +211,8 @@ describe('wheel zoom helpers', () => {
     expect(shouldHandleWheelZoom({ deltaX: 5, deltaY: 30, ctrlKey: false, metaKey: false })).toBe(true);
   });
 
-  it('uses slower pinch sensitivity than wheel sensitivity', () => {
-    expect(ZOOM_PINCH_SENSITIVITY).toBeLessThan(ZOOM_WHEEL_SENSITIVITY);
+  it('uses higher pinch sensitivity than wheel sensitivity', () => {
+    expect(ZOOM_PINCH_SENSITIVITY).toBeGreaterThan(ZOOM_WHEEL_SENSITIVITY);
   });
 
   it('pinch delta changes zoom less than regular wheel delta', () => {

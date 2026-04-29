@@ -48,7 +48,7 @@ export const ZOOM_HARD_LIMIT = 1_000;
 export const ZOOM_MAX_WINDOW_MS = 256 * 60_000;
 export const ZOOM_MIN_WINDOW_MS = 7_500;
 export const ZOOM_WHEEL_SENSITIVITY = 1 / 480;
-export const ZOOM_PINCH_SENSITIVITY = 1 / 700;
+export const ZOOM_PINCH_SENSITIVITY = 3 / 700;
 
 function roundZoom(level: number): number {
   return Number(level.toFixed(6));

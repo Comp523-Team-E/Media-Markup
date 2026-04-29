@@ -17,6 +17,8 @@
 
   let waveformEl     = $state<HTMLDivElement | null>(null);
   let waveformWrapEl = $state<HTMLDivElement | null>(null);
+  let waveformResizeQueued = false;
+  let lastWaveformWidth = 0;
   const validationProblemIds = $derived(validationProblemMarkerIds(appState.markers, appState.validationError));
 
   // ── Timeline tick helpers ──────────────────────────────────────────────
@@ -71,6 +73,29 @@
   // Expose the wrap element so external code can scroll it if needed
   $effect(() => { appState.waveformWrapEl = waveformWrapEl; });
 
+  function queueWaveformResize() {
+    if (waveformResizeQueued) return;
+    waveformResizeQueued = true;
+    requestAnimationFrame(() => {
+      waveformResizeQueued = false;
+      if (!appState.wavesurfer || !waveformEl || !appState.metadata) return;
+      const width = Math.round(waveformEl.clientWidth);
+      if (width > 0 && width !== lastWaveformWidth) {
+        lastWaveformWidth = width;
+        appState.wavesurfer.setOptions({ width });
+      }
+    });
+  }
+
+  // Keep the waveform canvas width in sync with zoom width changes so
+  // the WaveSurfer render does not lag behind the timeline/markers.
+  $effect(() => {
+    const zoomLevel = appState.zoomLevel;
+    const ws = appState.wavesurfer;
+    if (!ws || !waveformEl || !appState.metadata) return;
+    queueWaveformResize();
+  });
+
   // Initialize (or reinitialize) WaveSurfer whenever the loaded file changes.
   // The cleanup function runs on component destroy or before re-running.
   $effect(() => {
@@ -99,6 +124,8 @@
     });
     ws.load(convertFileSrc(filePath));
     appState.wavesurfer = ws;
+    lastWaveformWidth = 0;
+    queueWaveformResize();
 
     const resizeObserver = new ResizeObserver(([entry]) => {
       const height = Math.round(entry.contentRect.height) - TIMELINE_HEIGHT;
@@ -141,6 +168,14 @@
       e.ctrlKey || e.metaKey
     );
     setZoomLevel(nextZoom);
+  }
+
+  function handleZoomInClick() {
+    zoomIn();
+  }
+
+  function handleZoomOutClick() {
+    zoomOut();
   }
 
   // ── Waveform drag seeking ──────────────────────────────────────────────
@@ -226,14 +261,14 @@
 <div class="zoom-controls">
   <button
     class="zoom-btn"
-    onclick={zoomOut}
+    onclick={handleZoomOutClick}
     disabled={!appState.metadata || appState.zoomLevel <= minZoomForFile}
     title="Zoom out"
   >−</button>
   <span class="zoom-label">{zoomWindowLabel}</span>
   <button
     class="zoom-btn"
-    onclick={zoomIn}
+    onclick={handleZoomInClick}
     disabled={!appState.metadata || appState.zoomLevel >= maxZoomForFile}
     title="Zoom in"
   >+</button>
