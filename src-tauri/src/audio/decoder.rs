@@ -278,7 +278,7 @@ fn decode_loop(
         let pts_ms = packet.ts() as f64 * 1000.0 / sample_rate as f64;
         state.set_position_ms(pts_ms);
 
-        // Optionally time-stretch via rubato.
+        // Optionally time-stretch to preserve pitch when speed != 1x.
         let samples_to_write: &[f32];
         let resampled: Vec<f32>;
         if let Some(r) = &mut resampler {
