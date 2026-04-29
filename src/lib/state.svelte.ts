@@ -36,7 +36,7 @@ class AppState {
   wavesurfer: WaveSurfer | null = null;
 
   // ── Zoom (reactive) + scroll container ref (non-reactive) ─────────────
-  zoomLevel = $state(1);  // multiplier: 1 | 2 | 4 | 8 | 16
+  zoomLevel = $state(1);  // 1 = 100% (waveform fills viewport width)
   waveformWrapEl: HTMLDivElement | null = null;
 }
 

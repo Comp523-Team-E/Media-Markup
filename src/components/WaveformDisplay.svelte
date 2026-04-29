@@ -2,9 +2,18 @@
   import { invoke, convertFileSrc } from '@tauri-apps/api/core';
   import WaveSurfer from 'wavesurfer.js';
   import { appState } from '$lib/state.svelte';
-  import { kindLabel, formatMs, ZOOM_LEVELS } from '$lib/utils';
+  import {
+    kindLabel,
+    formatMs,
+    formatMsDisplay,
+    ZOOM_DEFAULT,
+    maxZoomForDuration,
+    minZoomForDuration,
+    shouldHandleWheelZoom,
+    zoomFromWheelDelta,
+  } from '$lib/utils';
   import { validationProblemMarkerIds } from '$lib/validation';
-  import { moveEditingMarkerToMs } from '$lib/actions';
+  import { moveEditingMarkerToMs, setZoomLevel, zoomIn, zoomOut } from '$lib/actions';
 
   let waveformEl     = $state<HTMLDivElement | null>(null);
   let waveformWrapEl = $state<HTMLDivElement | null>(null);
@@ -52,6 +61,12 @@
   }
 
   const ticks = $derived(computeTicks(appState.durationMs, appState.zoomLevel));
+  const minZoomForFile = $derived(minZoomForDuration(appState.durationMs));
+  const maxZoomForFile = $derived(maxZoomForDuration(appState.durationMs));
+  const visibleWindowMs = $derived(appState.zoomLevel > 0 && appState.durationMs > 0
+    ? appState.durationMs / appState.zoomLevel
+    : 0);
+  const zoomWindowLabel = $derived(visibleWindowMs > 0 ? formatMsDisplay(visibleWindowMs, visibleWindowMs) : '0.000');
 
   // Expose the wrap element so external code can scroll it if needed
   $effect(() => { appState.waveformWrapEl = waveformWrapEl; });
@@ -63,7 +78,10 @@
     if (!filePath || !waveformEl) return;
 
     // Reset zoom and scroll when a new file is loaded
-    appState.zoomLevel = 1;
+    appState.zoomLevel = Math.min(
+      Math.max(ZOOM_DEFAULT, minZoomForDuration(appState.durationMs)),
+      maxZoomForDuration(appState.durationMs),
+    );
     if (waveformWrapEl) waveformWrapEl.scrollLeft = 0;
 
     const ws = WaveSurfer.create({
@@ -106,16 +124,23 @@
     waveformWrapEl.scrollLeft = Math.max(0, pct * total - visible / 2);
   });
 
-  // ── Zoom controls ──────────────────────────────────────────────────────
-
-  function zoomIn() {
-    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
-    if (i < ZOOM_LEVELS.length - 1) appState.zoomLevel = ZOOM_LEVELS[i + 1];
-  }
-
-  function zoomOut() {
-    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
-    if (i > 0) appState.zoomLevel = ZOOM_LEVELS[i - 1];
+  // ── Zoom controls / interactions ───────────────────────────────────────
+  async function handleWheelZoom(e: WheelEvent) {
+    if (!waveformWrapEl || !appState.metadata || appState.durationMs <= 0) return;
+    if (!shouldHandleWheelZoom({
+      deltaX: e.deltaX,
+      deltaY: e.deltaY,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+    })) return;
+    e.preventDefault();
+    const nextZoom = zoomFromWheelDelta(
+      appState.zoomLevel,
+      e.deltaY,
+      appState.durationMs,
+      e.ctrlKey || e.metaKey
+    );
+    setZoomLevel(nextZoom);
   }
 
   // ── Waveform drag seeking ──────────────────────────────────────────────
@@ -202,14 +227,14 @@
   <button
     class="zoom-btn"
     onclick={zoomOut}
-    disabled={!appState.metadata || appState.zoomLevel <= 1}
+    disabled={!appState.metadata || appState.zoomLevel <= minZoomForFile}
     title="Zoom out"
   >−</button>
-  <span class="zoom-label">{appState.zoomLevel}x</span>
+  <span class="zoom-label">{zoomWindowLabel}</span>
   <button
     class="zoom-btn"
     onclick={zoomIn}
-    disabled={!appState.metadata || appState.zoomLevel >= 16}
+    disabled={!appState.metadata || appState.zoomLevel >= maxZoomForFile}
     title="Zoom in"
   >+</button>
 </div>
@@ -228,6 +253,7 @@
   onpointermove={handlePointerMove}
   onpointerup={handlePointerUp}
   onpointercancel={handlePointerUp}
+  onwheel={handleWheelZoom}
 >
   {#if appState.editingMarkerId}
     <div class="edit-mode-hint">Click to move marker · Enter to confirm · Esc to cancel</div>

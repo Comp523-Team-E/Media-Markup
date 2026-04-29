@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { appState } from '$lib/state.svelte';
 import { handleKeydown } from '$lib/actions';
-import { SPEEDS } from '$lib/utils';
+import { SPEEDS, maxZoomForDuration, minZoomForDuration } from '$lib/utils';
 import { resetAppState } from '../helpers/reset-state';
 import type { FileMetadata } from '$lib/types';
 
@@ -31,6 +31,7 @@ beforeEach(() => {
   resetAppState();
   // Most keyboard tests require a file to be loaded
   appState.metadata = fakeMeta;
+  appState.durationMs = fakeMeta.durationMs;
 });
 
 describe('handleKeydown — guards', () => {
@@ -398,61 +399,70 @@ describe('handleKeydown — edit mode', () => {
 });
 
 describe('handleKeydown — zoom', () => {
-  it('- key decrements zoom level', () => {
-    appState.zoomLevel = 4;
-    handleKeydown(keyEvent('-'));
-    expect(appState.zoomLevel).toBe(2);
-  });
-
-  it('- key does nothing when already at minimum zoom (1)', () => {
-    appState.zoomLevel = 1;
-    handleKeydown(keyEvent('-'));
-    expect(appState.zoomLevel).toBe(1);
-  });
-
-  it('= key increments zoom level', () => {
+  it('- key decrements zoom level continuously', () => {
     appState.zoomLevel = 2;
+    handleKeydown(keyEvent('-'));
+    expect(appState.zoomLevel).toBeLessThan(2);
+  });
+
+  it('- key does nothing when already at minimum zoom', () => {
+    appState.durationMs = 60_000;
+    appState.zoomLevel = minZoomForDuration(appState.durationMs);
+    handleKeydown(keyEvent('-'));
+    expect(appState.zoomLevel).toBe(minZoomForDuration(appState.durationMs));
+  });
+
+  it('= key increments zoom level continuously', () => {
+    appState.zoomLevel = 1;
     handleKeydown(keyEvent('='));
-    expect(appState.zoomLevel).toBe(4);
+    expect(appState.zoomLevel).toBeGreaterThan(1);
   });
 
   it('+ key also increments zoom level (default multi-key bind)', () => {
-    appState.zoomLevel = 2;
-    handleKeydown(keyEvent('+'));
-    expect(appState.zoomLevel).toBe(4);
-  });
-
-  it('+ key does nothing when already at maximum zoom (16)', () => {
-    appState.zoomLevel = 16;
-    handleKeydown(keyEvent('+'));
-    expect(appState.zoomLevel).toBe(16);
-  });
-
-  it('stepping through all levels with = reaches maximum', () => {
-    appState.zoomLevel = 1;
-    handleKeydown(keyEvent('='));
-    handleKeydown(keyEvent('='));
-    handleKeydown(keyEvent('='));
-    handleKeydown(keyEvent('='));
-    expect(appState.zoomLevel).toBe(16);
-  });
-
-  it('stepping through all levels with + also reaches maximum', () => {
     appState.zoomLevel = 1;
     handleKeydown(keyEvent('+'));
-    handleKeydown(keyEvent('+'));
-    handleKeydown(keyEvent('+'));
-    handleKeydown(keyEvent('+'));
-    expect(appState.zoomLevel).toBe(16);
+    expect(appState.zoomLevel).toBeGreaterThan(1);
   });
 
-  it('stepping back through all levels with - reaches minimum', () => {
-    appState.zoomLevel = 16;
+  it('repeated + key presses keep increasing zoom without low fixed cap', () => {
+    appState.zoomLevel = 1;
+    const start = appState.zoomLevel;
+    for (let i = 0; i < 20; i++) handleKeydown(keyEvent('+'));
+    expect(appState.zoomLevel).toBeGreaterThan(start);
+  });
+
+  it('repeated = key presses keep increasing zoom without low fixed cap', () => {
+    appState.zoomLevel = 1;
+    const start = appState.zoomLevel;
+    for (let i = 0; i < 20; i++) handleKeydown(keyEvent('='));
+    expect(appState.zoomLevel).toBeGreaterThan(start);
+  });
+
+  it('stepping back with - eventually reaches the minimum zoom', () => {
+    appState.zoomLevel = 1;
+    appState.durationMs = 8 * 3_600_000;
+    for (let i = 0; i < 20; i++) handleKeydown(keyEvent('-'));
+    expect(appState.zoomLevel).toBe(minZoomForDuration(appState.durationMs));
+  });
+
+  it('zoom in then zoom out trends back toward the starting level', () => {
+    appState.zoomLevel = 1;
+    handleKeydown(keyEvent('+'));
+    const zoomed = appState.zoomLevel;
     handleKeydown(keyEvent('-'));
-    handleKeydown(keyEvent('-'));
-    handleKeydown(keyEvent('-'));
-    handleKeydown(keyEvent('-'));
-    expect(appState.zoomLevel).toBe(1);
+    expect(zoomed).toBeGreaterThan(1);
+    expect(appState.zoomLevel).toBeLessThanOrEqual(1);
+  });
+
+  it('zoom-in is clamped by duration-aware max zoom', () => {
+    appState.durationMs = 3_600_000;
+    appState.zoomLevel = maxZoomForDuration(appState.durationMs);
+    handleKeydown(keyEvent('+'));
+    expect(appState.zoomLevel).toBe(maxZoomForDuration(appState.durationMs));
+  });
+
+  it('a longer file allows a higher max zoom than a short file', () => {
+    expect(maxZoomForDuration(6 * 3_600_000)).toBeGreaterThan(maxZoomForDuration(60_000));
   });
 });
 

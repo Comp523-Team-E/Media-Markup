@@ -1,5 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { formatMs, formatMsDisplay, kindLabel, SPEEDS, ZOOM_LEVELS, parseTimeMs } from '$lib/utils';
+import {
+  formatMs,
+  formatMsDisplay,
+  kindLabel,
+  SPEEDS,
+  parseTimeMs,
+  ZOOM_DEFAULT,
+  ZOOM_MIN,
+  ZOOM_STEP_FACTOR,
+  ZOOM_PINCH_SENSITIVITY,
+  ZOOM_WHEEL_SENSITIVITY,
+  ZOOM_MIN_WINDOW_MS,
+  ZOOM_MAX_WINDOW_MS,
+  clampZoomMin,
+  maxZoomForDuration,
+  minZoomForDuration,
+  zoomInLevel,
+  zoomOutLevel,
+  shouldHandleWheelZoom,
+  zoomFromWheelDelta,
+  computeZoomedScrollLeftCentered,
+} from '$lib/utils';
 
 describe('formatMs', () => {
   it('formats zero as 00:00:00.000', () => {
@@ -129,30 +150,99 @@ describe('parseTimeMs', () => {
   });
 });
 
-describe('ZOOM_LEVELS', () => {
-  it('starts at 1 (no zoom)', () => {
-    expect(ZOOM_LEVELS[0]).toBe(1);
+describe('zoom helpers', () => {
+  it('uses 1.0 for default zoom (100%)', () => {
+    expect(ZOOM_DEFAULT).toBe(1);
   });
 
-  it('ends at 16 (maximum zoom)', () => {
-    expect(ZOOM_LEVELS[ZOOM_LEVELS.length - 1]).toBe(16);
+  it('uses a minimum zoom less than default', () => {
+    expect(ZOOM_MIN).toBeLessThan(ZOOM_DEFAULT);
   });
 
-  it('has at least 3 steps', () => {
-    expect(ZOOM_LEVELS.length).toBeGreaterThanOrEqual(3);
+  it('uses a zoom-in step factor greater than 1', () => {
+    expect(ZOOM_STEP_FACTOR).toBeGreaterThan(1);
   });
 
-  it('is sorted in strictly ascending order', () => {
-    for (let i = 1; i < ZOOM_LEVELS.length; i++) {
-      expect(ZOOM_LEVELS[i]).toBeGreaterThan(ZOOM_LEVELS[i - 1]);
-    }
+  it('clampZoomMin enforces the minimum zoom', () => {
+    expect(clampZoomMin(0.001)).toBe(ZOOM_MIN);
   });
 
-  it('contains only positive integers', () => {
-    for (const level of ZOOM_LEVELS) {
-      expect(level).toBeGreaterThan(0);
-      expect(Number.isInteger(level)).toBe(true);
-    }
+  it('exposes a duration-aware min zoom window cap', () => {
+    expect(ZOOM_MAX_WINDOW_MS).toBeGreaterThan(ZOOM_MIN_WINDOW_MS);
+  });
+
+  it('max zoom scales up with longer files', () => {
+    expect(maxZoomForDuration(3_600_000)).toBeGreaterThan(maxZoomForDuration(60_000));
+  });
+
+  it('min zoom keeps 100% as the zoom-out floor', () => {
+    expect(minZoomForDuration(600_000)).toBe(1);
+    expect(minZoomForDuration(8 * 3_600_000)).toBe(1);
+  });
+
+  it('zoomInLevel doubles at each step by default', () => {
+    expect(zoomInLevel(1, 60_000)).toBeCloseTo(2, 6);
+  });
+
+  it('zoomOutLevel halves until duration-aware minimum is reached', () => {
+    const duration = 8 * 3_600_000;
+    expect(zoomOutLevel(1, duration)).toBe(minZoomForDuration(duration));
+  });
+
+  it('zoomOutLevel never drops below duration-aware min zoom', () => {
+    expect(zoomOutLevel(0.2, 60_000)).toBe(minZoomForDuration(60_000));
+  });
+});
+
+describe('wheel zoom helpers', () => {
+  it('handles pinch-like wheel when ctrl is pressed', () => {
+    expect(shouldHandleWheelZoom({ deltaX: 20, deltaY: 0.5, ctrlKey: true, metaKey: false })).toBe(true);
+  });
+
+  it('handles pinch-like wheel when meta is pressed', () => {
+    expect(shouldHandleWheelZoom({ deltaX: 20, deltaY: 0.5, ctrlKey: false, metaKey: true })).toBe(true);
+  });
+
+  it('ignores mostly horizontal wheel motion without pinch modifiers', () => {
+    expect(shouldHandleWheelZoom({ deltaX: 25, deltaY: 10, ctrlKey: false, metaKey: false })).toBe(false);
+  });
+
+  it('handles mostly vertical wheel motion without pinch modifiers', () => {
+    expect(shouldHandleWheelZoom({ deltaX: 5, deltaY: 30, ctrlKey: false, metaKey: false })).toBe(true);
+  });
+
+  it('uses slower pinch sensitivity than wheel sensitivity', () => {
+    expect(ZOOM_PINCH_SENSITIVITY).toBeLessThan(ZOOM_WHEEL_SENSITIVITY);
+  });
+
+  it('pinch delta changes zoom less than regular wheel delta', () => {
+    const base = 10;
+    const wheel = zoomFromWheelDelta(base, -120, 3_600_000, false);
+    const pinch = zoomFromWheelDelta(base, -120, 3_600_000, true);
+    // Both should zoom out for negative deltas, but pinch should be gentler.
+    expect(wheel).toBeLessThan(pinch);
+  });
+
+  it('positive delta zooms in and negative delta zooms out', () => {
+    const base = 4;
+    expect(zoomFromWheelDelta(base, 120, 3_600_000, false)).toBeGreaterThan(base);
+    expect(zoomFromWheelDelta(base, -120, 3_600_000, false)).toBeLessThan(base);
+  });
+
+  it('pinch uses opposite delta sign from wheel direction', () => {
+    const base = 4;
+    expect(zoomFromWheelDelta(base, 120, 3_600_000, true)).toBeLessThan(base);
+    expect(zoomFromWheelDelta(base, -120, 3_600_000, true)).toBeGreaterThan(base);
+  });
+
+  it('preserves center focus when computing scroll left after zoom', () => {
+    const nextScrollLeft = computeZoomedScrollLeftCentered({
+      scrollLeft: 100,
+      viewportWidth: 200,
+      prevZoom: 1,
+      nextZoom: 2,
+    });
+    expect(nextScrollLeft).toBe(300);
   });
 });
 
