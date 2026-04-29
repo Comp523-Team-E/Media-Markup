@@ -28,9 +28,9 @@
         <div class="segment-row">
           <span class="seg-index">{String(i + 1).padStart(3, '0')}</span>
           <div class="seg-times">
-            <span class="seg-start">{formatMs(seg.startMs)}</span>
+            <span class="seg-start copyable-text">{formatMs(seg.startMs)}</span>
             <span class="seg-arrow">→</span>
-            <span class="seg-end">{formatMs(seg.endMs)}</span>
+            <span class="seg-end copyable-text">{formatMs(seg.endMs)}</span>
           </div>
           <div class="seg-title-wrap">
             <input

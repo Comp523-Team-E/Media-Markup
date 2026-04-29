@@ -95,6 +95,20 @@
     line-height: 1.4;
     overflow: hidden;
     height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  :global(input),
+  :global(textarea),
+  :global([contenteditable='true']) {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  :global(.copyable-text) {
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   .app {

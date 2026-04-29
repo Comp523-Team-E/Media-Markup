@@ -62,7 +62,7 @@
       </button>
     </div>
 
-    <span class="time-display">
+    <span class="time-display copyable-text">
       {formatMsDisplay(appState.positionMs, appState.durationMs)} / {formatMsDisplay(appState.durationMs, appState.durationMs)}
     </span>
   </div>

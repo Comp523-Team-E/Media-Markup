@@ -6,7 +6,7 @@
 
 <div class="welcome">
   <div class="brand">
-    <span class="brand-name">Media Segment Marker</span>
+    <span class="brand-name">Audio Ninja</span>
     <span class="brand-sub">Precision audio/video segmentation tool</span>
   </div>
   <div class="upload-card">
