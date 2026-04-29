@@ -41,7 +41,82 @@ export function kindLabel(kind: MarkerKind): string {
 }
 
 export const SPEEDS = [0.5, 0.75, 1, 1.5, 2];
-export const ZOOM_LEVELS = [1, 2, 4, 8, 16];
+export const ZOOM_DEFAULT = 1;
+export const ZOOM_MIN = 0.25;
+export const ZOOM_STEP_FACTOR = 2;
+export const ZOOM_HARD_LIMIT = 1_000;
+export const ZOOM_MAX_WINDOW_MS = 256 * 60_000;
+export const ZOOM_MIN_WINDOW_MS = 7_500;
+export const ZOOM_WHEEL_SENSITIVITY = 1 / 480;
+export const ZOOM_PINCH_SENSITIVITY = 3 / 700;
+
+function roundZoom(level: number): number {
+  return Number(level.toFixed(6));
+}
+
+export function clampZoomMin(level: number): number {
+  return roundZoom(Math.max(level, ZOOM_MIN));
+}
+
+export function clampZoom(level: number): number {
+  return roundZoom(Math.min(Math.max(level, ZOOM_MIN), ZOOM_HARD_LIMIT));
+}
+
+export function maxZoomForDuration(durationMs: number): number {
+  if (durationMs <= 0) return ZOOM_MIN;
+  const maxFromMinWindow = clampZoom(Math.max(ZOOM_MIN, durationMs / ZOOM_MIN_WINDOW_MS));
+  return Math.max(maxFromMinWindow, minZoomForDuration(durationMs));
+}
+
+export function minZoomForDuration(durationMs: number): number {
+  if (durationMs <= 0) return ZOOM_DEFAULT;
+  return ZOOM_DEFAULT;
+}
+
+function applyZoomBoundaries(level: number, durationMs: number): number {
+  const minZoom = minZoomForDuration(durationMs);
+  const maxZoom = maxZoomForDuration(durationMs);
+  return roundZoom(Math.min(Math.max(level, minZoom), maxZoom));
+}
+
+export function zoomInLevel(level: number, durationMs: number, step = 1): number {
+  return applyZoomBoundaries(level * ZOOM_STEP_FACTOR ** Math.max(step, 0), durationMs);
+}
+
+export function zoomOutLevel(level: number, durationMs: number, step = 1): number {
+  return applyZoomBoundaries(level / ZOOM_STEP_FACTOR ** Math.max(step, 0), durationMs);
+}
+
+export interface WheelZoomInput {
+  deltaX: number;
+  deltaY: number;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}
+
+export function shouldHandleWheelZoom(input: WheelZoomInput): boolean {
+  if (input.ctrlKey || input.metaKey) return input.deltaY !== 0;
+  return Math.abs(input.deltaY) > Math.abs(input.deltaX);
+}
+
+export function zoomFromWheelDelta(level: number, deltaY: number, durationMs: number, isPinch: boolean): number {
+  const sensitivity = isPinch ? ZOOM_PINCH_SENSITIVITY : ZOOM_WHEEL_SENSITIVITY;
+  const effectiveDelta = isPinch ? -deltaY : deltaY;
+  const factor = 2 ** (effectiveDelta * sensitivity);
+  return applyZoomBoundaries(level * factor, durationMs);
+}
+
+export function computeZoomedScrollLeftCentered(params: {
+  scrollLeft: number;
+  viewportWidth: number;
+  prevZoom: number;
+  nextZoom: number;
+}): number {
+  const { scrollLeft, viewportWidth, prevZoom, nextZoom } = params;
+  const ratio = nextZoom / prevZoom;
+  const centerPx = scrollLeft + viewportWidth / 2;
+  return Math.max(0, centerPx * ratio - viewportWidth / 2);
+}
 
 // Parses a flexible time string back to milliseconds. Accepted formats:
 //   "5"          → 5 seconds

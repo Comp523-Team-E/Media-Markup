@@ -1,6 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
 import { appState } from './state.svelte';
-import { SPEEDS, ZOOM_LEVELS } from './utils';
+import {
+  SPEEDS,
+  clampZoom,
+  computeZoomedScrollLeftCentered,
+  maxZoomForDuration,
+  minZoomForDuration,
+  zoomInLevel,
+  zoomOutLevel,
+} from './utils';
 import { DEFAULT_SHORTCUTS, matchesShortcut } from './shortcuts';
 import type { ShortcutConfig } from './shortcuts';
 import type { FileMetadata, PlaybackPosition, Marker, Segment, MarkerKind } from './types';
@@ -133,13 +141,43 @@ export function handleKeydown(e: KeyboardEvent) {
     e.preventDefault(); setSpeed(SPEEDS[4]);
   } else if (matchesShortcut(e, s.zoomOut)) {
     e.preventDefault();
-    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
-    if (i > 0) appState.zoomLevel = ZOOM_LEVELS[i - 1];
+    zoomOut();
   } else if (matchesShortcut(e, s.zoomIn)) {
     e.preventDefault();
-    const i = ZOOM_LEVELS.indexOf(appState.zoomLevel);
-    if (i < ZOOM_LEVELS.length - 1) appState.zoomLevel = ZOOM_LEVELS[i + 1];
+    zoomIn();
   }
+}
+
+export function setZoomLevel(level: number): number {
+  const prev = appState.zoomLevel;
+  const duration = appState.durationMs;
+  const minZoom = minZoomForDuration(duration);
+  const maxZoom = maxZoomForDuration(duration);
+  const next = Math.min(Math.max(clampZoom(level), minZoom), maxZoom);
+  appState.zoomLevel = next;
+  if (appState.waveformWrapEl && next !== prev) {
+    const wrap = appState.waveformWrapEl;
+    const previousScrollLeft = wrap.scrollLeft;
+    const viewportWidth = wrap.clientWidth;
+    requestAnimationFrame(() => {
+      if (!appState.waveformWrapEl) return;
+      appState.waveformWrapEl.scrollLeft = computeZoomedScrollLeftCentered({
+        scrollLeft: previousScrollLeft,
+        viewportWidth,
+        prevZoom: prev,
+        nextZoom: next,
+      });
+    });
+  }
+  return next;
+}
+
+export function zoomIn(step = 1): number {
+  return setZoomLevel(zoomInLevel(appState.zoomLevel, appState.durationMs, step));
+}
+
+export function zoomOut(step = 1): number {
+  return setZoomLevel(zoomOutLevel(appState.zoomLevel, appState.durationMs, step));
 }
 
 // ── Seeking ───────────────────────────────────────────────────────────────
